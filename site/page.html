@@ -624,9 +624,29 @@
             <p>The median first-job salary rises with the number of experience types, from about $12K below similar grads with none to about $7K above with six. The groups with 8 or more are tiny (5, 1 and 0 alumni).</p>
           {{/CELL}}
           </div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="sub-head"><h3>Grades and courses</h3></div>
+        <div class="stack">
           <div class="col">
           {{CELL:strat_gpa|ax.hexbin(withSalary[<span class="s">"final_gpa"</span>], withSalary[<span class="s">"sal_adj"</span>], gridsize=25, mincnt=1)}}
             <p>Starting pay climbs steadily with GPA: the median goes from $19K below similar grads at a 1.75–2.0 GPA to $15K above at 3.75–4.0. GPA is the strongest factor in the regression (+$13.2K per GPA point).</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:strat_dfw|stuAlum.groupby(stuAlum[<span class="s">"dfw"</span>].clip(upper=4))[[<span class="s">"time_to_degree_years"</span>, <span class="s">"sal_adj"</span>]].agg([<span class="s">"mean"</span>, <span class="s">"median"</span>])}}
+            <p>Alumni with no D, F or W grades finished in <strong>3.6 years</strong> on average; with four or more, <strong>5.2 years</strong>. Each one adds about 0.16 years (2 months), holding degree level and entry type fixed. The pay gap (+$3.1K against −$10.3K) runs through GPA: with GPA held constant, D/F/W grades don't predict pay.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:strat_core_dfw|core[<span class="s">"grade"</span>].isin([<span class="s">"D"</span>, <span class="s">"F"</span>, <span class="s">"W"</span>]).groupby(core[<span class="s">"course_id"</span>]).mean().nlargest(10)}}
+            <p><strong>CMSC 441 Algorithms</strong> (7.4%) and <strong>CMSC 341 Data Structures</strong> (7.0%) end in a D, F or W most often, then Linear Algebra and Operating Systems. Every CS core course is above the 4.1% rate across all courses, so these are the semesters to plan a lighter load around.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:strat_electives|smf.ols(<span class="s">"sal_adj ~ took + final_gpa + internship_count + credential_count + C(track)"</span>, data=d.assign(took=took)).fit()}}
+            <p>Among CS electives, only three security courses pass the strict check: <strong>Digital Forensics</strong> (+$4.7K), <strong>Applied Cryptography</strong> (+$4.3K) and <strong>Offensive Security and Penetration Testing</strong> (+$3.6K), compared with CS alumni who have the same GPA, internships, credentials and track. Machine learning and cloud courses lean positive but could be chance.</p>
           {{/CELL}}
           </div>
           <div class="mores">

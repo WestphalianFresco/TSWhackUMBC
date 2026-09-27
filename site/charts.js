@@ -36,6 +36,7 @@
     signed0: v => (Math.abs(v) < 1e-9 ? '0' : (v < 0 ? '−' : '+') + +Math.abs(v).toFixed(1)),   // axis ticks for changes
     num1: v => (+v).toFixed(1),
     mo1: v => (+v).toFixed(1) + ' mo',
+    yr1: v => (+v).toFixed(1) + ' yr',
     int: v => Math.round(v).toLocaleString('en-US'),
     num: v => String(v),
   };
@@ -532,7 +533,7 @@
       const lab = txt(g, x0 - 10, cy + 4, r.label, 'lab', 'end');
       if (rowSuffix(r)) { const t = mk('tspan', { class: 'n' }, lab); t.textContent = rowSuffix(r); }
       if (ci) mk('line', { x1: x(r.lo), x2: x(r.hi), y1: cy, y2: cy, stroke: light, 'stroke-width': 3, 'stroke-linecap': 'round', class: 'grow mid', style: `--i:${i}` }, g);
-      mk('circle', { cx: x(r.value), cy, r: 6.5, fill: color(0), stroke: 'var(--surface)', 'stroke-width': 2, class: 'fade', style: `--i:${i}` }, g);
+      mk('circle', { cx: x(r.value), cy, r: 6.5, fill: r.hl === false ? grey : color(0), stroke: 'var(--surface)', 'stroke-width': 2, class: 'fade', style: `--i:${i}` }, g);
       if (spec.labels) txt(g, x(r.value) + 12, cy + 4, fmt(r.value), 'val fade', 'start', i);
       hover(ctx, { x: 0, y: yy, width: W, height: rowH },
         `<b>${esc(r.label)}</b><br>${fmt(r.value)}${ci ? ` (95% CI ${fmt(r.lo)} to ${fmt(r.hi)})` : ''}${r.n != null ? `<br>n=${r.n}` : ''}`, x(r.value), cy - 8);
@@ -541,8 +542,11 @@
     return H;
   }
 
-  const forestTable = spec => table([spec.rowName || 'Group', 'Value', ...(spec.rows[0].lo != null ? ['95% CI'] : []), 'n'],
-    spec.rows.map(r => [r.label, FMT[spec.valueFmt || 'pctRaw0'](r.value), ...(r.lo != null ? [`${FMT.pctRaw1(r.lo)} to ${FMT.pctRaw1(r.hi)}`] : []), r.n == null ? '' : FMT.int(r.n)]));
+  const forestTable = spec => {
+    const f = FMT[spec.valueFmt || 'pctRaw0'], ciF = !spec.valueFmt || spec.valueFmt === 'pctRaw0' ? FMT.pctRaw1 : f;   // interval ends get a decimal
+    return table([spec.rowName || 'Group', 'Value', ...(spec.rows[0].lo != null ? ['95% CI'] : []), 'n'],
+      spec.rows.map(r => [r.label, f(r.value), ...(r.lo != null ? [`${ciF(r.lo)} to ${ciF(r.hi)}`] : []), r.n == null ? '' : FMT.int(r.n)]));
+  };
 
   /* ── heatmap: rows × columns shaded on a light-to-dark blue ramp ─────── */
 
