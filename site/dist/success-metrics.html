@@ -4,7 +4,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@400;700&family=Patrick+Hand&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap">
 <style>
   :root {
-    --bg: #FAFAF7; --surface: #FFFFFF; --code-bg: #F3F2EE;
+    color-scheme: light;   /* always the bright light theme, whatever the viewer's system setting */
+    --bg: #FFFFFF; --surface: #FFFFFF; --code-bg: #F3F2EE;
     /* chart series: analysis.py's palette, validated per surface */
     --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
     --ink: #151412; --ink-2: #3B3934; --muted: #5F5C55;
@@ -16,28 +17,6 @@
     --serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
     --sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --bg: #11100F; --surface: #1A1917; --code-bg: #151413;
-      --ink: #F1EFEA; --ink-2: #D5D2CA; --muted: #A29E95;
-      --rule: #2C2B28; --grid: #22211F;
-      --gold-ink: #F2C04E; --mark: #BD8818;
-      --tint: #2A2310;
-      --s1: #3b87e0; --s2: #e0602c; --s3: #1fa574; --s4: #b58510;
-      --shadow: none;
-    }
-  }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --bg: #11100F; --surface: #1A1917; --code-bg: #151413;
-    --ink: #F1EFEA; --ink-2: #D5D2CA; --muted: #A29E95;
-    --rule: #2C2B28; --grid: #22211F;
-    --gold-ink: #F2C04E; --mark: #BD8818;
-    --tint: #2A2310;
-    --s1: #3b87e0; --s2: #e0602c; --s3: #1fa574; --s4: #b58510;
-    --shadow: none;
   }
 
   html { scroll-behavior: smooth; scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 72px); }
