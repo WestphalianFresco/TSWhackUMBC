@@ -95,10 +95,13 @@ def build():
     byCo["low"] = proportion_confint(byCo["sum"], byCo["size"], method="wilson")[0]
     offerCos = byCo[byCo["low"] > offer.mean()].sort_values("rate", ascending=False)
 
+    # the hardest core courses each major actually requires (by D/F/W rate), so IS students aren't warned about CMSC cores
     core = graded.merge(cat[["course_id", "course_type", "course_title"]], on="course_id")
     core = core[core["course_type"] == "Core"]
-    hardCore = (core["grade"].isin(["D", "F", "W"]).groupby(core["course_id"]).mean()
-                .nlargest(6).rename("dfw_rate").to_frame().join(cat.set_index("course_id")["course_title"]))
+    coreDfw = core["grade"].isin(["D", "F", "W"]).groupby(core["course_id"]).mean().rename("dfw_rate")
+    requiredBy = cat.set_index("course_id")["required_for_majors"].fillna("").str.split("|")
+    hardCore = {m: coreDfw[[c for c in coreDfw.index if m in requiredBy[c]]].nlargest(6).to_frame()
+                .join(cat.set_index("course_id")["course_title"]) for m in alum["major"].unique()}
 
     return dict(cur=cur, alum=alum, exp=exp, cat=cat, models=models, dfwYears=dfwYears, payingTypes=payingTypes,
                 electives=el, offerCos=offerCos, overallOffer=offer.mean(), hardCore=hardCore,
@@ -243,7 +246,7 @@ def strategy(s, ctx):
     recommended = plan.drop_duplicates("kind").head(3).reset_index(drop=True)
 
     risks = []
-    hardLeft = ctx["hardCore"][~ctx["hardCore"].index.isin(s["courses_taken"])]
+    hardLeft = ctx["hardCore"][s["major"]][~ctx["hardCore"][s["major"]].index.isin(s["courses_taken"])]
     if len(hardLeft):
         risks.append(f"Hardest core courses still ahead: {', '.join(hardLeft.index)}. Spread them across terms; "
                      f"each D/F/W adds about {ctx['dfwYears']:.2f} years to graduation.")
