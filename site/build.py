@@ -160,7 +160,7 @@ def top_orgs(r):
                       for o, row in act["top10"].iterrows()])
 
 
-# ---------------------------------------------------------------- Student Life charts (file.ipynb)
+# ---------------------------------------------------------------- Student Life charts (dataset_analysis.ipynb, Student Activities)
 # Same logic as the notebook's cells, computed from the CSVs. The notebook reads two of them (share of
 # participation by year, entry salary heatmap) from Tiger Data continuous aggregates; here the same
 # aggregates are recomputed: experience_yearly counts activities per year of the term, and
@@ -631,32 +631,35 @@ def strategy_ols_table(r):
 # Each chart's button copies the code that draws it: a notebook's setup cell plus the chart's cell(s),
 # or, for the dashboard charts, the analysis.py call plus the functions behind it.
 
-NOTEBOOK_CELLS = {   # chart -> (notebook, setup cell id, chart cell ids)
-    "life_experience_share": ("file.ipynb", "e9bcaedf", ["162dfd30", "e68c6111"]),
-    "life_breadth": ("file.ipynb", "e9bcaedf", ["d4967a77"]),
-    "life_type_change": ("file.ipynb", "e9bcaedf", ["fe5393fc"]),
-    "life_share_by_year": ("file.ipynb", "e9bcaedf", ["153df875"]),
-    "life_top_people": ("file.ipynb", "e9bcaedf", ["22665d88"]),
-    "life_fastest_growing": ("file.ipynb", "e9bcaedf", ["a9f363b4"]),
-    "life_club_retention": ("file.ipynb", "e9bcaedf", ["ac30fdd2"]),
-    "life_leadership": ("file.ipynb", "e9bcaedf", ["d52d1bf8"]),
-    "life_first_gen": ("file.ipynb", "e9bcaedf", ["3210bc23"]),
-    "life_return_offer": ("file.ipynb", "e9bcaedf", ["dfacfed9"]),
-    "life_salary_premium": ("file.ipynb", "e9bcaedf", ["b736ba81"]),
-    "life_breadth_salary": ("file.ipynb", "e9bcaedf", ["3fa5d159"]),
-    "life_entry_salary": ("file.ipynb", "e9bcaedf", ["80114b69"]),
-    "strat_internships": ("strategies.ipynb", "d67dd327", ["d473f48d"]),
-    "strat_channels": ("strategies.ipynb", "d67dd327", ["7795b081"]),
-    "strat_activity_payoff": ("strategies.ipynb", "d67dd327", ["e28955fd"]),
-    "strat_clubs": ("strategies.ipynb", "d67dd327", ["7433dfc9"]),
-    "strat_gpa": ("strategies.ipynb", "d67dd327", ["e0b67ded"]),
-    "job_destinations": ("job_hunting.ipynb", "bfaac8c4", ["a7470077"]),
-    "job_time_to_hire": ("job_hunting.ipynb", "bfaac8c4", ["b52d25aa"]),
-    "job_channels": ("job_hunting.ipynb", "bfaac8c4", ["0de09a3d"]),
-    "job_industries": ("job_hunting.ipynb", "bfaac8c4", ["08438015"]),
-    "job_regions": ("job_hunting.ipynb", "bfaac8c4", ["ef932412"]),
-    "job_raises": ("job_hunting.ipynb", "bfaac8c4", ["9d8f3e90"]),
-    "job_ladder": ("job_hunting.ipynb", "bfaac8c4", ["73d9cd85"]),
+LIFE_SETUP = ["e9bcaedf", "457ba160"]      # dataset_analysis.ipynb: imports + chart colors, CSV loading
+TIGER_SETUP = LIFE_SETUP + ["e88ee978"]   # ... plus the Tiger Data connection
+
+NOTEBOOK_CELLS = {   # chart -> (notebook, setup cell ids, chart cell ids; earlier ids define what the last one uses)
+    "life_experience_share": ("dataset_analysis.ipynb", LIFE_SETUP, ["fe1eb3ee"]),
+    "life_breadth": ("dataset_analysis.ipynb", LIFE_SETUP, ["d4967a77"]),
+    "life_type_change": ("dataset_analysis.ipynb", LIFE_SETUP, ["fe5393fc"]),
+    "life_share_by_year": ("dataset_analysis.ipynb", TIGER_SETUP, ["153df875"]),
+    "life_top_people": ("dataset_analysis.ipynb", LIFE_SETUP, ["22665d88"]),
+    "life_fastest_growing": ("dataset_analysis.ipynb", LIFE_SETUP, ["fe5393fc", "22665d88", "a9f363b4"]),
+    "life_club_retention": ("dataset_analysis.ipynb", LIFE_SETUP, ["ac30fdd2"]),
+    "life_leadership": ("dataset_analysis.ipynb", LIFE_SETUP, ["22665d88", "d52d1bf8"]),
+    "life_first_gen": ("dataset_analysis.ipynb", LIFE_SETUP, ["22665d88", "3210bc23"]),
+    "life_return_offer": ("dataset_analysis.ipynb", LIFE_SETUP, ["dfacfed9"]),
+    "life_salary_premium": ("dataset_analysis.ipynb", LIFE_SETUP, ["b736ba81"]),
+    "life_breadth_salary": ("dataset_analysis.ipynb", LIFE_SETUP, ["d4967a77", "3fa5d159"]),
+    "life_entry_salary": ("dataset_analysis.ipynb", TIGER_SETUP, ["80114b69"]),
+    "strat_internships": ("strategies.ipynb", ["d67dd327"], ["d473f48d"]),
+    "strat_channels": ("strategies.ipynb", ["d67dd327"], ["7795b081"]),
+    "strat_activity_payoff": ("strategies.ipynb", ["d67dd327"], ["e28955fd"]),
+    "strat_clubs": ("strategies.ipynb", ["d67dd327"], ["7433dfc9"]),
+    "strat_gpa": ("strategies.ipynb", ["d67dd327"], ["e0b67ded"]),
+    "job_destinations": ("job_hunting.ipynb", ["bfaac8c4"], ["a7470077"]),
+    "job_time_to_hire": ("job_hunting.ipynb", ["bfaac8c4"], ["b52d25aa"]),
+    "job_channels": ("job_hunting.ipynb", ["bfaac8c4"], ["0de09a3d"]),
+    "job_industries": ("job_hunting.ipynb", ["bfaac8c4"], ["08438015"]),
+    "job_regions": ("job_hunting.ipynb", ["bfaac8c4"], ["ef932412"]),
+    "job_raises": ("job_hunting.ipynb", ["bfaac8c4"], ["9d8f3e90"]),
+    "job_ladder": ("job_hunting.ipynb", ["bfaac8c4"], ["73d9cd85"]),
 }
 
 DASHBOARD_CALLS = {   # chart -> (compute function, result variable, plot call), as app.py makes them
@@ -687,8 +690,8 @@ def chart_code(names, data):
         title = data[name].get("title", name)
         if name in NOTEBOOK_CELLS:
             nb, setup, ids = NOTEBOOK_CELLS[name]
-            code[name] = (f"# {title}\n# From {nb}: the notebook's setup cell, then the cell that draws the chart.\n\n"
-                          + cell(nb, setup) + "\n\n\n" + "\n\n".join(cell(nb, i) for i in ids) + "\n")
+            code[name] = (f"# {title}\n# From {nb}: the notebook's setup cells, then the cells that draw the chart.\n\n"
+                          + "\n\n".join(cell(nb, i) for i in setup) + "\n\n\n" + "\n\n".join(cell(nb, i) for i in ids) + "\n")
         elif name in DASHBOARD_CALLS:
             compute, var, call = DASHBOARD_CALLS[name]
             plot_fn = getattr(a, call.split("(")[0].split(".")[1])
