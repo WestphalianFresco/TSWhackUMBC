@@ -1,0 +1,913 @@
+<title>Success Metrics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@400;700&family=Patrick+Hand&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap">
+<style>
+  :root {
+    --bg: #FAFAF7; --surface: #FFFFFF; --code-bg: #F3F2EE;
+    /* chart series: analysis.py's palette, validated per surface */
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+    --ink: #151412; --ink-2: #3B3934; --muted: #5F5C55;
+    --rule: #E5E2DA; --grid: #ECEAE3;
+    --gold: #F2B51D; --on-gold: #151412; --gold-ink: #8A6200;
+    --mark: #C28A00;
+    --tint: #FDF4DC;
+    --shadow: 0 1px 2px rgba(21,20,18,.04), 0 12px 32px -12px rgba(21,20,18,.12);
+    --serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+    --sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #11100F; --surface: #1A1917; --code-bg: #151413;
+      --ink: #F1EFEA; --ink-2: #D5D2CA; --muted: #A29E95;
+      --rule: #2C2B28; --grid: #22211F;
+      --gold-ink: #F2C04E; --mark: #BD8818;
+      --tint: #2A2310;
+      --s1: #3b87e0; --s2: #e0602c; --s3: #1fa574; --s4: #b58510;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #11100F; --surface: #1A1917; --code-bg: #151413;
+    --ink: #F1EFEA; --ink-2: #D5D2CA; --muted: #A29E95;
+    --rule: #2C2B28; --grid: #22211F;
+    --gold-ink: #F2C04E; --mark: #BD8818;
+    --tint: #2A2310;
+    --s1: #3b87e0; --s2: #e0602c; --s3: #1fa574; --s4: #b58510;
+    --shadow: none;
+  }
+
+  html { scroll-behavior: smooth; scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 72px); }
+  body { background: var(--bg); color: var(--ink); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin-inline: auto; padding-inline: clamp(16px, 4vw, 32px); }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 3px; border-radius: 4px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 500; text-wrap: balance; margin: 0; }
+  p { margin: 0; }
+
+  /* nav */
+  .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
+  .nav .wrap { display: flex; align-items: center; gap: 16px; height: 60px; max-width: 1440px; }
+  .nav .btn.nav-cta { flex: none; padding: 8px 16px; font-size: 14px; }
+  /* a small shake every few seconds so the consultation button gets noticed; still while hovered */
+  @media (prefers-reduced-motion: no-preference) {
+    .nav-cta { animation: nudge 6s ease-in-out 2s infinite; }
+    .nav-cta:hover, .nav-cta:focus-visible { animation-play-state: paused; }
+  }
+  @keyframes nudge { 0%, 10%, 100% { transform: none; } 2% { transform: rotate(-4deg); } 4% { transform: rotate(4deg); } 6% { transform: rotate(-3deg); } 8% { transform: rotate(2deg); } }
+  .tabs { flex: 1; min-width: 0; display: flex; gap: clamp(14px, 3vw, 28px); overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+  .tabs::-webkit-scrollbar { display: none; }
+  /* wide screens: the four tabs spread across the bar; narrow screens scroll */
+  @media (min-width: 760px) { .tabs { justify-content: space-around; padding-inline: clamp(0px, 4vw, 64px); } }
+  .tab { position: relative; padding: 6px 2px; border: 0; background: none; font: 500 15px var(--sans); color: var(--ink-2); cursor: pointer; text-decoration: none; }
+  .tab:hover { color: var(--ink); }
+  /* active tab: a crayon scribble underline that draws in */
+  .tab::after { content: ""; position: absolute; left: -4px; right: -4px; bottom: -2px; height: 8px; transform: scaleX(0); transform-origin: left; transition: transform .45s cubic-bezier(.3, 1.4, .5, 1);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 C20 2 35 7 52 4 S82 2 98 5' fill='none' stroke='%23C8553D' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
+  .tab[aria-pressed="true"] { color: var(--ink); }
+  .tab[aria-pressed="true"]::after, .tab[aria-current]::after { transform: scaleX(1); }
+  /* while Findings is the current tab, the stage tab keeps its state but loses the mark */
+  .tabs:has([aria-current]) .tab[aria-pressed="true"]::after { transform: scaleX(0); }
+
+  /* hero */
+  .hero { position: relative; display: grid; gap: clamp(32px, 5vw, 56px); align-items: center; padding-block: clamp(48px, 8vw, 96px) clamp(40px, 6vw, 72px); }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(var(--grid) 1.2px, transparent 1.2px) 0 0 / 22px 22px; -webkit-mask-image: radial-gradient(ellipse at 70% 40%, #000 20%, transparent 70%); mask-image: radial-gradient(ellipse at 70% 40%, #000 20%, transparent 70%); }
+  @media (min-width: 900px) { .hero { grid-template-columns: 1fr 1fr; } }
+  .hero > *, .grid2 > *, .grid21 > * { min-width: 0; }
+  .eyebrow { display: flex; align-items: center; gap: 10px; font: 500 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+  .headline { margin-top: 20px; font-size: clamp(2.5rem, 5.4vw, 4.25rem); line-height: 1.04; letter-spacing: -.02em; }
+  .headline .l { display: block; animation: rise .8s cubic-bezier(.2,.7,.2,1) both; }
+  .headline .l:nth-child(2) { animation-delay: .12s; }
+  .headline .l:nth-child(3) { animation-delay: .24s; }
+  .type { font-style: italic; background: linear-gradient(transparent 64%, color-mix(in srgb, var(--gold) 50%, transparent) 64%); padding-inline: .04em; }
+  .lead { margin-top: 24px; max-width: 34em; font: 400 1.2rem/1.55 var(--serif); color: var(--ink-2); animation: rise .8s .36s cubic-bezier(.2,.7,.2,1) both; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; animation: rise .8s .48s cubic-bezier(.2,.7,.2,1) both; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; font: 600 15px var(--sans); text-decoration: none; transition: transform .15s, background-color .15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--gold); color: var(--on-gold); }
+  .btn.ghost { border: 1px solid var(--rule); background: var(--surface); }
+  .btn.ghost:hover { border-color: var(--muted); }
+
+  /* notebook cell */
+  .cell { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .hero .cell { animation: rise .9s .3s cubic-bezier(.2,.7,.2,1) both; }
+  .cell-in { display: flex; gap: 12px; padding: 10px 16px; background: var(--code-bg); border-bottom: 1px solid var(--rule); font: 400 13px/1.5 var(--mono); overflow-x: auto; white-space: nowrap; }
+  .prompt { color: var(--muted); flex: none; }
+  .cell-in .s { color: var(--gold-ink); }
+  .cell-out { padding: 16px 16px 12px; }
+  .cell-out header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+  .chart-title { font: 600 15px var(--sans); }
+  .chart-sub { font-size: 13px; color: var(--muted); }
+  /* charts (drawn by charts.js) */
+  .chart { display: flex; flex-direction: column; gap: 12px; padding: 16px 16px 14px; }
+  .chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 20px; }
+  .chart-head .chart-title { font: 600 15px var(--sans); }
+  .chart-head .chart-sub { font-size: 13px; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink-2); }
+  .legend li { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 11px; height: 11px; border-radius: 3px; }
+  .chart-scroll { overflow-x: auto; }
+  .chart-inner { position: relative; }
+  .chart-svg { display: block; overflow: visible; }
+  .chart-svg text { font: 400 11px var(--mono); fill: var(--muted); }
+  .chart-svg .lab { font: 400 12px var(--sans); fill: var(--ink-2); }
+  .chart-svg .lab-strong { font: 500 13px var(--sans); fill: var(--ink); }
+  .chart-svg .n { font: 400 12px var(--sans); fill: var(--muted); }
+  .chart-svg .val { font: 500 11px var(--mono); fill: var(--ink); }
+  .chart-svg .in { font: 600 11px var(--sans); fill: #fff; }
+  .chart-svg .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  .chart-svg .grid { stroke: var(--grid); stroke-width: 1; }
+  .chart-svg .base { stroke: var(--rule); stroke-width: 1; }
+  .chart-svg .zero { stroke: var(--muted); stroke-width: 1; }
+  .chart-svg .ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 4; }
+  .chart-svg .xhair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  .chart-svg .xdot { stroke: var(--surface); stroke-width: 2; }
+  .chart-note { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .chart-caption { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--rule); }
+  .chart-caption p { max-width: 48em; font: 400 1rem/1.6 var(--serif); color: var(--ink-2); }
+  .chart-caption strong { font-weight: 600; color: var(--ink); }
+  .chart-tip { position: absolute; z-index: 2; padding: 7px 10px; border-radius: 8px; background: var(--ink); color: var(--bg); font: 500 12px/1.45 var(--sans); white-space: nowrap; pointer-events: none; box-shadow: var(--shadow); }
+  .chart-tip b { font-weight: 600; }
+  .chart-table summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  .chart-foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .chart-foot .chart-table { flex: 1; min-width: 0; }
+  .copy-code { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); font: 500 12.5px var(--sans); color: var(--muted); cursor: pointer; }
+  .copy-code svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+  .copy-code:hover { color: var(--ink); border-color: var(--muted); }
+  .copy-code.done { color: var(--gold-ink); border-color: var(--gold-ink); }
+  .code-fallback { max-height: 260px; overflow: auto; margin: 0; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--code-bg); font: 400 12px/1.5 var(--mono); white-space: pre; }
+  .chart-table summary:hover { color: var(--ink); }
+  .chart-table .table-wrap { margin-top: 10px; border-radius: 10px; }
+  .chart-table table { font-size: 13px; }
+  .chart-table th, .chart-table td { padding: 8px 14px; }
+
+  /* chart motion: charts.js sets each mark's progress from the scroll position every frame */
+  .plot .grow, .plot .grow-y { transform-box: fill-box; }
+  .plot .grow { transform-origin: left center; }
+  .plot .grow.from-right { transform-origin: right center; }
+  .plot .grow-y { transform-origin: center bottom; }
+  .plot .grow.mid, .plot .grow-y.mid { transform-origin: center; }
+  .plot .grow-y.from-top { transform-origin: center top; }
+  .plot .pop { transform-box: fill-box; transform-origin: center; }
+  .plot .draw { stroke-dasharray: 1; }
+
+  /* variance table in the hero cell */
+  .vt { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vt th, .vt td { padding: 10px 8px; border-bottom: 1px solid var(--rule); text-align: left; }
+  .vt th { font: 500 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .vt tr:last-child td { border-bottom: 0; }
+  .vt td.num, .vt th.num { text-align: right; font: 500 14px var(--mono); font-variant-numeric: tabular-nums; }
+  .vt th.num { font: 500 11px var(--sans); }
+  .vt td code { display: block; font: 400 11px var(--mono); color: var(--muted); }
+  .vbar { display: block; height: 8px; margin-top: 6px; margin-left: auto; width: calc(var(--v) * 4%); max-width: 100%; background: var(--mark); border-radius: 2px; }
+
+  /* stats strip */
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 16px; padding-block: 28px; border-block: 1px solid var(--rule); }
+  @media (min-width: 720px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat .n { font: 500 clamp(1.6rem, 3vw, 2.1rem)/1.1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .stat .k { font-size: 14px; color: var(--muted); }
+
+  /* sections */
+  section.block { padding-block: clamp(56px, 8vw, 88px); border-bottom: 1px solid var(--rule); }
+  .sec-head { display: flex; flex-direction: column; gap: 10px; max-width: 42em; margin-bottom: 36px; }
+  .sec-head h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); line-height: 1.1; letter-spacing: -.015em; }
+  .sec-head p { font: 400 1.1rem/1.55 var(--serif); color: var(--ink-2); }
+  .note { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); }
+  .stack { display: flex; flex-direction: column; gap: 40px; }
+  .grid2, .grid21 { display: grid; gap: 40px; align-items: start; }
+  @media (min-width: 900px) { .grid2 { grid-template-columns: 1fr 1fr; } .grid21 { grid-template-columns: 2fr 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 16px; }
+  .prose { display: flex; flex-direction: column; gap: 12px; max-width: 42em; }
+  .prose p { font: 400 1.05rem/1.6 var(--serif); color: var(--ink-2); }
+  .prose strong { font-weight: 600; color: var(--ink); }
+  .callout { display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; border-radius: 12px; background: var(--tint); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); font: 400 1.05rem/1.6 var(--serif); color: var(--ink-2); }
+  .callout strong { font-weight: 600; color: var(--ink); }
+  .finding-list { display: flex; flex-direction: column; gap: clamp(48px, 7vw, 72px); }
+  .finding + .finding { padding-top: clamp(48px, 7vw, 72px); border-top: 1px solid var(--rule); }
+  .sub-head { display: flex; flex-direction: column; gap: 8px; max-width: 42em; margin-bottom: 28px; }
+  .sub-head h3 { font-size: clamp(1.45rem, 2.4vw, 1.9rem); line-height: 1.15; letter-spacing: -.01em; }
+  .sub-head p { font: 400 1.05rem/1.55 var(--serif); color: var(--ink-2); }
+  .placeholder { display: grid; place-items: center; min-height: 240px; padding: 24px; border: 1.5px dashed var(--rule); border-radius: 14px; color: var(--muted); font-size: 15px; text-align: center; }
+
+  /* collapsible tables (the app's expanders) */
+  details.more { border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  details.more summary { display: flex; align-items: center; gap: 10px; padding: 14px 20px; cursor: pointer; font: 500 15px var(--sans); list-style: none; }
+  details.more summary::-webkit-details-marker { display: none; }
+  details.more summary::before { content: ""; width: 7px; height: 7px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
+  details.more[open] summary::before { transform: rotate(45deg); }
+  details.more .inner { display: flex; flex-direction: column; gap: 16px; padding: 0 20px 20px; }
+  details.more .inner > p { font-size: 15px; color: var(--ink-2); max-width: 46em; }
+  details.more .table-wrap { border-radius: 10px; }
+  .mores { display: flex; flex-direction: column; gap: 12px; }
+
+  /* tables */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 14px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .table-wrap table { min-width: 600px; }
+  th, td { padding: 12px 18px; text-align: left; border-bottom: 1px solid var(--rule); }
+  tbody tr:last-child td { border-bottom: 0; }
+  th { font: 500 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td:first-child { font-weight: 500; }
+  td:first-child code { display: block; font: 400 12px var(--mono); color: var(--muted); }
+  td.src { color: var(--ink-2); }
+  td.unused { color: var(--muted); font-style: italic; }
+  tfoot td { border-top: 1px solid var(--rule); border-bottom: 0; font-weight: 600; }
+
+  /* method */
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; }
+  @media (min-width: 900px) { .steps { grid-template-columns: repeat(5, 1fr); gap: 24px; } }
+  .step { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  .step .num { font: 500 13px var(--mono); color: var(--gold-ink); }
+  .step h3 { font-size: 1.45rem; }
+  .step p { font-size: 15px; color: var(--ink-2); }
+  .step .tool { margin-top: 4px; font: 400 12px var(--mono); color: var(--muted); }
+
+  footer { padding-block: 40px 56px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(.5em); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* ── the full-screen crayon-collage scene (site/hero.js): exactly one screen tall, then the page scrolls on ── */
+  .scene { --c-ink: #2B2622; --c-ink-2: #4A433C; --c-white: #FFFDF7; --c-brick: #C8553D;
+    --hand: "Patrick Hand", "Comic Sans MS", "Marker Felt", cursive; --sketch: "Cabin Sketch", "Marker Felt", "Comic Sans MS", cursive;
+    position: relative; overflow: hidden; height: calc(100svh - 60px - env(safe-area-inset-top, 0px)); min-height: 500px; color: var(--c-ink);
+    background-color: #A8D2EC;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .defs { position: absolute; width: 0; height: 0; }
+  .scene svg { overflow: visible; }
+  .sun { position: absolute; top: 8%; right: 7%; width: clamp(80px, 11vw, 150px); }
+  .cloud { position: absolute; width: clamp(110px, 15vw, 220px); }
+  .cloud.c1 { top: 7%; left: 30%; }
+  .cloud.c2 { top: 22%; left: 58%; width: clamp(90px, 11vw, 170px); }
+  .prop { position: absolute; bottom: 21%; left: var(--zone); transform: translateX(-50%); cursor: pointer; }
+  .prop.campus { height: min(40svh, 30vw); }
+  .prop.sign { height: min(34svh, 27vw); }
+  .prop.city { height: min(50svh, 36vw); }
+  .ground { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 25%; }
+  .kid-wrap { position: absolute; left: 0; bottom: 5%; height: min(40svh, 46vw); aspect-ratio: 200 / 336; z-index: 5; }
+  .kid-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .speed { opacity: 0; }
+  /* character rig: limbs swing from the hip/shoulder, the body leans from the feet */
+  #kid .limb { transform-box: fill-box; transform-origin: 50% 6%; }
+  #facing, #flipper { transform-box: view-box; transform-origin: 100px 170px; }
+  #bob { transform-box: view-box; transform-origin: 100px 330px; }
+  #rays { transform-box: view-box; transform-origin: 0 0; }
+  #flag { transform-box: fill-box; transform-origin: 0% 50%; }
+  #kid :is(rect, path, circle, ellipse, polygon) { stroke: var(--c-ink); stroke-width: 2.6; stroke-linejoin: round; }
+  #kid .no-line { stroke: none; }
+  #kid .fit-student, #kid .fit-strategy, #kid .fit-job { display: none; }
+  #kid[data-fit="student"] .fit-student, #kid[data-fit="strategy"] .fit-strategy, #kid[data-fit="job"] .fit-job { display: inline; }
+  .scene .outline :is(rect, path, circle, ellipse, polygon, line) { stroke: var(--c-ink); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+  .scene .outline .flat :is(rect, path) { stroke: none; }
+  .scene text { font-family: var(--hand); fill: var(--c-ink); }
+  .scene text.wordmark { font: 700 29px Georgia, "Times New Roman", serif; letter-spacing: 1px; }
+  /* the taped paper sticker above the student */
+  .sticker { position: absolute; left: 0; top: clamp(16px, 6svh, 56px); z-index: 6; width: fit-content; max-width: min(440px, calc(100% - 32px)); padding: 18px 22px 20px; background: var(--c-white); color: var(--c-ink);
+    box-shadow: 2px 3px 0 rgba(43, 38, 34, .12), 0 10px 24px -12px rgba(43, 38, 34, .35); }
+  .sticker::before { content: ""; position: absolute; top: -12px; left: 50%; width: 92px; height: 24px; transform: translateX(-50%) rotate(-3deg); background: rgba(242, 181, 29, .55); box-shadow: inset 0 0 0 1px rgba(43, 38, 34, .06); }
+  .sticker-step { font: 400 15px var(--hand); letter-spacing: .12em; text-transform: uppercase; color: var(--c-brick); }
+  .sticker-more { display: inline-block; margin-top: 6px; font: 400 16px var(--hand); color: var(--c-brick); text-underline-offset: 3px; }
+  .sticker-title { margin: 2px 0 0; font: 700 clamp(1.6rem, 2.8vw, 2.2rem)/1.1 var(--sketch); letter-spacing: .01em; color: var(--c-ink); }
+</style>
+
+<header class="nav">
+  <div class="wrap">
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" type="button" data-state="life" aria-pressed="true">Student Life</button>
+      <button class="tab" type="button" data-state="strategy" aria-pressed="false">Strategies</button>
+      <button class="tab" type="button" data-state="job" aria-pressed="false">Job Trajectory</button>
+      <a class="tab" href="#findings">Findings</a>
+    </nav>
+    <a class="btn primary nav-cta" href="enter-my-data.html">Free consultation</a>
+  </div>
+</header>
+
+<!-- Crayon collage filters. #crayon boils: its seed changes a few times a second so edges wobble like stop-motion. -->
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="crayon" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feTurbulence class="boil" type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="1" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="5" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2.2 0 0 0 1.95" result="holes"/>
+      <feComposite in="rough" in2="holes" operator="in" result="waxy"/>
+      <feDropShadow in="waxy" dx="2" dy="3" stdDeviation="1.4" flood-color="#2B2622" flood-opacity="0.24"/>
+    </filter>
+    <filter id="paper" x="-5%" y="-10%" width="110%" height="130%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="9" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="9" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="2" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -1.8 0 0 0 1.75" result="holes"/>
+      <feComposite in="rough" in2="holes" operator="in" result="waxy"/>
+      <feDropShadow in="waxy" dx="0" dy="-2" stdDeviation="1.5" flood-color="#2B2622" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+</svg>
+
+<section class="scene" id="scene" aria-label="From freshman to first job">
+  <!-- sky pieces -->
+  <svg class="sun" viewBox="-70 -70 140 140" aria-hidden="true">
+    <g filter="url(#crayon)" class="outline">
+      <g id="rays">
+        <line x1="0" y1="-66" x2="0" y2="-52" /><line x1="0" y1="66" x2="0" y2="52" /><line x1="-66" y1="0" x2="-52" y2="0" /><line x1="66" y1="0" x2="52" y2="0" />
+        <line x1="-47" y1="-47" x2="-37" y2="-37" /><line x1="47" y1="47" x2="37" y2="37" /><line x1="-47" y1="47" x2="-37" y2="37" /><line x1="47" y1="-47" x2="37" y2="-37" />
+      </g>
+      <circle r="40" fill="#F2B51D" />
+    </g>
+  </svg>
+  <svg class="cloud c1" viewBox="0 0 220 90" aria-hidden="true"><g filter="url(#crayon)" class="outline"><path d="M20 78 C2 78 2 52 24 50 C22 26 52 18 66 34 C74 10 116 8 124 36 C140 20 172 28 170 50 C200 48 206 78 184 78 Z" fill="#FFFDF7"/></g></svg>
+  <svg class="cloud c2" viewBox="0 0 220 90" aria-hidden="true"><g filter="url(#crayon)" class="outline"><path d="M24 78 C4 76 8 50 30 52 C30 30 62 24 74 40 C88 18 128 22 130 46 C160 36 184 54 172 78 Z" fill="#FFFDF7"/></g></svg>
+
+  <!-- left third: UMBC campus (after the view from the entrance: admin tower, engineering building, the long MD-flag wall) -->
+  <svg class="prop campus" data-state="life" style="--zone: 16.667%" viewBox="0 0 400 300" aria-hidden="true">
+    <defs>
+      <clipPath id="flagShape"><path d="M320 -40 C338 -46 360 -34 390 -40 V18 C360 24 338 12 320 18 Z"/></clipPath>
+      <!-- the entrance wall's grey Maryland-flag checker -->
+      <pattern id="mdFlag" width="24" height="24" patternUnits="userSpaceOnUse">
+        <rect width="24" height="24" fill="#A3A8AB"/>
+        <path d="M0 0h3v12H0zM6 0h3v12H6zM12 12h3v12h-3zM18 12h3v12h-3z" fill="#858A8E"/>
+        <path d="M12 6h12M18 0v12M0 18h12M6 12v12" stroke="#CBCFD1" stroke-width="3"/>
+        <path d="M0 12L12 0M12 24L24 12" stroke="#CBCFD1" stroke-width="1.5"/>
+      </pattern>
+    </defs>
+    <g filter="url(#crayon)" class="outline">
+      <!-- back: red brick block with a stepped roof -->
+      <path d="M150 272 V196 H176 V184 H214 V196 H248 V272 Z" fill="#B3503C"/>
+      <!-- left: brick and glass engineering building -->
+      <rect x="4" y="150" width="70" height="122" fill="#B55A43"/>
+      <g class="flat" id="leftWindows"></g>
+      <rect x="70" y="170" width="84" height="102" fill="#B4C2CE"/>
+      <rect x="64" y="160" width="96" height="12" fill="#8E9AA6"/>
+      <g class="flat"><rect x="72" y="182" width="80" height="9" fill="#6F8697"/><rect x="72" y="204" width="80" height="9" fill="#6F8697"/><rect x="72" y="226" width="80" height="9" fill="#6F8697"/></g>
+      <!-- right: the tall brick administration tower -->
+      <rect x="272" y="22" width="106" height="250" fill="#C06E50"/>
+      <g class="flat" id="towerFloors"></g>
+      <rect x="282" y="8" width="22" height="14" fill="#8FB4B8"/>
+      <!-- trees, with a redbud in bloom -->
+      <circle cx="176" cy="238" r="26" fill="#6FA24A"/><circle cx="206" cy="228" r="30" fill="#86B95B"/>
+      <circle cx="248" cy="242" r="22" fill="#B6489C"/><circle cx="266" cy="250" r="16" fill="#C95BAE"/>
+      <circle cx="40" cy="246" r="22" fill="#86B95B"/>
+      <!-- Retriever flag on the tower roof -->
+      <line x1="318" y1="-46" x2="318" y2="22"/>
+      <g id="flag">
+        <image href="assets/retriever-logo.png" x="318" y="-48" width="74" height="72" preserveAspectRatio="xMidYMid slice" clip-path="url(#flagShape)"/>
+        <path d="M320 -40 C338 -46 360 -34 390 -40 V18 C360 24 338 12 320 18 Z" fill="none"/>
+      </g>
+      <!-- the long UMBC entrance wall -->
+      <path d="M0 240 C120 236 260 250 400 256 V284 H0 Z" fill="url(#mdFlag)"/>
+      <rect x="0" y="282" width="400" height="8" fill="#3E4246"/>
+      <text x="22" y="273" class="wordmark">UMBC</text>
+    </g>
+  </svg>
+
+  <!-- middle: the crossroads of strategies -->
+  <svg class="prop sign" data-state="strategy" style="--zone: 50%" viewBox="0 0 240 300" aria-hidden="true">
+    <g filter="url(#crayon)" class="outline">
+      <rect x="112" y="30" width="16" height="268" fill="#9A6A3A"/>
+      <polygon points="40,44 186,44 212,64 186,84 40,84" fill="#F2B51D"/>
+      <text x="56" y="72" font-size="19" stroke="none">INTERNSHIPS</text>
+      <polygon points="200,104 66,104 40,124 66,144 200,144" fill="#FFFDF7"/>
+      <text x="92" y="132" font-size="19" stroke="none">CLUBS</text>
+      <polygon points="30,164 196,164 222,184 196,204 30,204" fill="#86B95B"/>
+      <text x="40" y="192" font-size="18" stroke="none">CERTIFICATIONS</text>
+      <ellipse cx="120" cy="296" rx="44" ry="7" fill="#6FA24A"/>
+    </g>
+  </svg>
+
+  <!-- right third: the city -->
+  <svg class="prop city" data-state="job" style="--zone: 83.333%" viewBox="0 0 360 330" aria-hidden="true">
+    <g filter="url(#crayon)" class="outline" id="city">
+      <!-- mixed rooflines: pointed, flat with a sign, spire, flat with a rooftop block -->
+      <!-- construction-paper colors: terracotta, teal, plum, slate (all dark enough for the yellow windows) -->
+      <polygon points="8,130 44,90 80,130" fill="#9E4A2F"/>
+      <rect x="8" y="130" width="72" height="198" fill="#C2623F"/>
+      <rect x="92" y="36" width="82" height="292" fill="#2E7D7A"/>
+      <line x1="222" y1="16" x2="222" y2="44"/>
+      <polygon points="186,94 206,58 222,40 238,58 258,94" fill="#5E3862"/>
+      <rect x="186" y="94" width="72" height="234" fill="#7A4A7E"/>
+      <rect x="296" y="144" width="36" height="16" fill="#2E3A59"/>
+      <rect x="270" y="160" width="84" height="168" fill="#3F4E73"/>
+      <rect x="108" y="12" width="50" height="24" fill="#FFFDF7"/>
+      <text x="114" y="29" font-size="14" stroke="none">HIRING</text>
+      <g id="windows" class="no-line"></g>
+    </g>
+  </svg>
+
+  <!-- ground: torn grass paper with a kraft path running from campus to the city -->
+  <svg class="ground" viewBox="0 0 1200 220" preserveAspectRatio="none" aria-hidden="true">
+    <g filter="url(#paper)">
+      <path id="grass" fill="#86B95B" d=""/>
+      <path d="M-20 150 C180 118 360 170 600 138 S1000 112 1220 140" fill="none" stroke="#CFA873" stroke-width="46" stroke-linecap="round"/>
+    </g>
+  </svg>
+
+  <!-- the character -->
+  <div class="kid-wrap" id="kidWrap">
+    <svg class="speed" id="speed" viewBox="0 0 200 336" aria-hidden="true">
+      <g filter="url(#crayon)" stroke="#FFFDF7" stroke-width="7" stroke-linecap="round" fill="none">
+        <path d="M-150 150 H10"/><path d="M-120 200 H20"/><path d="M-140 250 H0"/>
+      </g>
+    </svg>
+    <svg id="kid" data-fit="student" viewBox="0 0 200 336" role="img" aria-label="A student in a hoodie with a backpack">
+      <g id="facing"><g id="flipper"><g id="bob" filter="url(#crayon)">
+        <!-- backpack peeks out behind (freshman) -->
+        <rect class="fit-student" x="36" y="116" width="34" height="78" rx="12" fill="#C8553D"/>
+        <!-- back arm -->
+        <g id="armB" class="limb">
+          <rect class="fit-student" x="48" y="114" width="22" height="86" rx="10" fill="#E9A93A"/>
+          <g class="fit-strategy"><rect x="48" y="114" width="22" height="46" rx="10" fill="#9CC3E6"/><rect x="50" y="156" width="18" height="44" rx="8" fill="#F1C39A"/></g>
+          <rect class="fit-job" x="48" y="114" width="22" height="86" rx="10" fill="#2E3A59"/>
+          <circle cx="59" cy="204" r="10" fill="#F1C39A"/>
+        </g>
+        <!-- legs -->
+        <g id="legB" class="limb">
+          <rect x="76" y="212" width="23" height="108" rx="9" fill="#4A6FA5" class="fit-student"/>
+          <rect x="76" y="212" width="23" height="108" rx="9" fill="#B99466" class="fit-strategy"/>
+          <rect x="76" y="212" width="23" height="108" rx="9" fill="#263049" class="fit-job"/>
+          <ellipse cx="86" cy="322" rx="18" ry="8" fill="#FFFDF7" class="fit-student"/>
+          <ellipse cx="86" cy="322" rx="18" ry="8" fill="#7A4E2D" class="fit-strategy"/>
+          <ellipse cx="86" cy="322" rx="18" ry="8" fill="#1E1B18" class="fit-job"/>
+        </g>
+        <g id="legF" class="limb">
+          <rect x="101" y="212" width="23" height="108" rx="9" fill="#4A6FA5" class="fit-student"/>
+          <rect x="101" y="212" width="23" height="108" rx="9" fill="#B99466" class="fit-strategy"/>
+          <rect x="101" y="212" width="23" height="108" rx="9" fill="#263049" class="fit-job"/>
+          <ellipse cx="116" cy="322" rx="18" ry="8" fill="#FFFDF7" class="fit-student"/>
+          <ellipse cx="116" cy="322" rx="18" ry="8" fill="#7A4E2D" class="fit-strategy"/>
+          <ellipse cx="116" cy="322" rx="18" ry="8" fill="#1E1B18" class="fit-job"/>
+        </g>
+        <!-- torso: hoodie / shirt with an intern badge / suit -->
+        <g class="fit-student">
+          <path d="M62 124 Q62 108 78 106 H122 Q138 108 138 124 L142 222 H58 Z" fill="#E9A93A"/>
+          <rect x="76" y="172" width="48" height="24" rx="6" fill="#D1902A"/>
+          <line x1="92" y1="112" x2="90" y2="142"/><line x1="108" y1="112" x2="110" y2="142"/>
+          <path d="M72 108 L84 190" fill="none" stroke="#8E2F1E" stroke-width="5"/>
+        </g>
+        <g class="fit-strategy">
+          <path d="M64 122 Q64 108 80 106 H120 Q136 108 136 122 L138 220 H62 Z" fill="#9CC3E6"/>
+          <polygon points="86,106 100,122 114,106" fill="#FFFDF7"/>
+          <path d="M88 110 L100 160 L112 110" fill="none" stroke="#C8553D" stroke-width="3"/>
+          <rect x="89" y="156" width="22" height="28" rx="3" fill="#FFFDF7"/>
+          <rect x="93" y="162" width="14" height="4" fill="#C8553D" class="no-line"/>
+        </g>
+        <g class="fit-job">
+          <path d="M60 124 Q60 106 78 104 H122 Q140 106 140 124 L144 224 H56 Z" fill="#2E3A59"/>
+          <polygon points="84,104 116,104 100,158" fill="#FFFDF7"/>
+          <polygon points="96,110 104,110 107,152 100,162 93,152" fill="#C8553D"/>
+          <path d="M84 104 L100 158 L94 170" fill="none"/><path d="M116 104 L100 158 L106 170" fill="none"/>
+          <circle cx="100" cy="186" r="3" fill="#FFFDF7"/><circle cx="100" cy="204" r="3" fill="#FFFDF7"/>
+        </g>
+        <!-- head -->
+        <rect x="91" y="94" width="18" height="16" fill="#F1C39A"/>
+        <circle cx="100" cy="68" r="34" fill="#F1C39A"/>
+        <path d="M66 66 Q64 30 100 30 Q136 30 134 64 Q124 50 104 52 Q84 46 66 66 Z" fill="#3B2A20"/>
+        <circle cx="112" cy="70" r="3.4" fill="#2B2622" class="no-line"/>
+        <circle cx="88" cy="70" r="3.4" fill="#2B2622" class="no-line"/>
+        <path d="M90 84 Q100 92 112 84" fill="none"/>
+        <circle cx="120" cy="82" r="5" fill="#E88C7A" class="no-line" opacity=".6"/>
+        <!-- front arm, with the notebook or briefcase -->
+        <g id="armF" class="limb">
+          <rect class="fit-student" x="130" y="114" width="22" height="86" rx="10" fill="#E9A93A"/>
+          <g class="fit-strategy"><rect x="130" y="114" width="22" height="46" rx="10" fill="#9CC3E6"/><rect x="132" y="156" width="18" height="44" rx="8" fill="#F1C39A"/>
+            <rect x="126" y="190" width="26" height="32" rx="3" fill="#86B95B"/><line x1="131" y1="200" x2="147" y2="200"/><line x1="131" y1="208" x2="147" y2="208"/></g>
+          <rect class="fit-job" x="130" y="114" width="22" height="86" rx="10" fill="#2E3A59"/>
+          <g class="fit-job"><path d="M134 204 V196 H150 V204" fill="none"/><rect x="122" y="204" width="40" height="28" rx="4" fill="#7A4E2D"/></g>
+          <circle cx="141" cy="204" r="10" fill="#F1C39A"/>
+        </g>
+      </g></g></g>
+    </svg>
+  </div>
+
+  <div class="sticker" id="sticker" aria-live="polite">
+    <div class="sticker-step" id="stickerStep">Student Life</div>
+    <h2 class="sticker-title" id="stickerTitle">Day one on campus</h2>
+    <a class="sticker-more" id="stickerMore" href="#student-life">See the charts ↓</a>
+  </div>
+</section>
+
+<main id="top" class="wrap">
+  <section class="block stage-panel" id="student-life" data-stage="life">
+    <div class="sec-head">
+      <span class="note">Student Life</span>
+      <h2>What students do outside class</h2>
+      <p>Which activities students choose, how that is shifting, which organizations they join, stay in and lead, and where it leads. From the team's student-experience notebook.</p>
+    </div>
+    <div class="finding-list">
+      <div class="finding">
+        <div class="sub-head"><h3>Activities</h3></div>
+        <div class="stack">
+          <div class="grid2">
+          {{CELL:life_experience_share|pctCur.sort_values().plot.barh()}}
+            <p><strong>Student organizations</strong> are the most common experience (66% of current students), then internships (44%) and campus jobs (42%). Co-ops are the rarest at 8%.</p>
+          {{/CELL}}
+          {{CELL:life_breadth|stuExp.groupby(<span class="s">"campus_id"</span>)[<span class="s">"experience_type"</span>].nunique()}}
+            <p>Most students try <strong>2 to 4 different types</strong> of experience. 181 people have tried none, and nobody has tried all ten.</p>
+          {{/CELL}}
+          </div>
+          <div class="grid2">
+          {{CELL:life_type_change|typeShare[<span class="s">"2024–26"</span>] - typeShare[<span class="s">"2018–20"</span>]}}
+            <p><strong>Certifications</strong> gained the most ground (+1.8 pts) and <strong>internships</strong> lost the most (−4.3 pts). These are shares, not raw counts, because current students make recent years busier for every type.</p>
+          {{/CELL}}
+          {{CELL:life_share_by_year|shareByYear = counts.div(counts.sum(axis=1), axis=0)}}
+            <p>Internships peaked at 27% of all participation in 2021 and fell to 17% by 2026, while certifications jumped to 21% and overtook them.</p>
+          {{/CELL}}
+          </div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="sub-head"><h3>Organizations</h3></div>
+        <div class="stack">
+          <div class="col">
+          {{CELL:life_top_people|orgPeople.nlargest(10, <span class="s">"people"</span>)}}
+            <p>The <strong>Division of Information Technology</strong> campus job reaches the most people (561). Six of the top 10 are hackathons.</p>
+          {{/CELL}}
+          </div>
+          <div class="grid2">
+          {{CELL:life_fastest_growing|share.nlargest(10, <span class="s">"change"</span>)}}
+            <p><strong>Brightline Code School</strong> grew the most (+0.49 pts of all participation), with two cloud groups and a security lab close behind.</p>
+          {{/CELL}}
+          {{CELL:life_club_retention|(clubs[<span class="s">"outcome"</span>] != <span class="s">"Left after one term"</span>).groupby(clubs[<span class="s">"experience_name"</span>]).mean()}}
+            <p>Retention is similar everywhere: the best clubs keep 80% of members past the first term, barely above the 75% average for all clubs.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:life_leadership|isLeader.groupby(org[groups]).mean().nlargest(10)}}
+            <p>In the <strong>Collegiate Cyber Defense Team</strong>, 28% of members held a leadership role, against 19% across all clubs and teams.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:life_first_gen|firstGenRate[firstGenRate[<span class="s">"members"</span>] &gt;= 50].nlargest(10, <span class="s">"pct"</span>)}}
+            <p>The <strong>National Society of Black Engineers</strong> chapter has the highest share of first-generation members (41% against 28% campus-wide). For 7 of these 10 organizations the interval crosses the campus-wide line, so their difference could be chance.</p>
+          {{/CELL}}
+          </div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="sub-head"><h3>Where it leads</h3></div>
+        <div class="stack">
+          <div class="grid2">
+          {{CELL:life_return_offer|offerRate[offerRate[<span class="s">"size"</span>] &gt;= 30].nlargest(10, <span class="s">"mean"</span>)}}
+            <p><strong>Copper Ridge Data Centers</strong> turns 52% of internships and co-ops into return offers, against 41% across all companies.</p>
+          {{/CELL}}
+          {{CELL:life_salary_premium|orgRank[orgRank[<span class="s">"n"</span>] &gt;= 30].nlargest(10, <span class="s">"premium"</span>)}}
+            <p>Three cybersecurity certification bodies lead, each about $10K above similar grads, followed by consulting and software internship employers.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:life_breadth_salary|ax.boxplot([adj[grp == k] for k in range(11)])}}
+            <p>The median first-job salary rises with the number of experience types, from about $12K below similar grads with none to about $7K above with six. The groups with 8 or more are tiny (5, 1 and 0 alumni).</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:life_entry_salary|entry.pivot(index=<span class="s">"job_family"</span>, columns=<span class="s">"year"</span>, values=<span class="s">"median_k"</span>)}}
+            <p><strong>Cybersecurity</strong> pays the most at entry level in almost every year (about $89K on average), and <strong>IT Support &amp; Operations</strong> the least (about $60K).</p>
+          {{/CELL}}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block stage-panel" id="strategies" data-stage="strategy" hidden>
+    <div class="sec-head">
+      <span class="note">Strategies</span>
+      <h2>Which in-school choices pay off in job hunting</h2>
+      <p>Alumni only: they have both campus records and job outcomes. Salary premium = first-job salary minus the median of grads with the same major and graduation year. From the team's strategies notebook.</p>
+    </div>
+    <div class="finding-list">
+      <div class="finding">
+        <div class="sub-head"><h3>Internships and job routes</h3></div>
+        <div class="stack">
+          <div class="col">
+          {{CELL:strat_internships|alum.groupby(<span class="s">"nIntern"</span>)[[<span class="s">"months_to_first_job"</span>, <span class="s">"sal_adj"</span>]].median()}}
+            <p>Internships help on every count: full-time employment rises from 70% with none to 78% with two or more, time to the first job drops from 4.2 to 0.3 months, and pay goes from $10.0K below similar grads to $8.5K above with three or more.</p>
+          {{/CELL}}
+          </div>
+          <div class="grid2">
+          {{CELL:strat_channels|stuAlum.groupby(<span class="s">"first_job_found_via"</span>)[<span class="s">"sal_adj"</span>].median()}}
+            <p>Only <strong>return offers</strong> pay above similar grads (+$7.2K median). Every other route lands $1K to $4K below.</p>
+          {{/CELL}}
+          {{CELL:life_return_offer|offerRate[offerRate[<span class="s">"size"</span>] &gt;= 30].nlargest(10, <span class="s">"mean"</span>)}}
+            <p><strong>Copper Ridge Data Centers</strong> turns 52% of internships and co-ops into return offers, against 41% across all companies.</p>
+          {{/CELL}}
+          </div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="sub-head"><h3>What to do on campus</h3></div>
+        <div class="stack">
+          <div class="col">
+          {{CELL:strat_activity_payoff|stats.mannwhitneyu(withSalary.loc[did, <span class="s">"sal_adj"</span>], withSalary.loc[~did, <span class="s">"sal_adj"</span>])}}
+            <p><strong>Internships</strong> are both the most common (72% of alumni) and the biggest payoff (+$10.4K). Certifications, co-ops and research add about $4.5K to $5K. Hackathons, campus jobs and competitive teams show no significant gap.</p>
+          {{/CELL}}
+          </div>
+          <div class="grid2">
+          {{CELL:strat_clubs|stuAlum.assign(role=role).groupby(<span class="s">"role"</span>)[[<span class="s">"sal_adj"</span>, <span class="s">"months_to_first_job"</span>]].median()}}
+            <p>Raw numbers favor leaders (+$2.5K and 0.5 months to a first job, against −$1.6K and 1.6 months with no club). Once internships, GPA, experience types and credentials are held constant, being a leader adds nothing (see the regression below).</p>
+          {{/CELL}}
+          {{CELL:life_salary_premium|orgRank[orgRank[<span class="s">"n"</span>] &gt;= 30].nlargest(10, <span class="s">"premium"</span>)}}
+            <p>Three cybersecurity certification bodies lead, each about $10K above similar grads, followed by consulting and software internship employers.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:life_breadth_salary|ax.boxplot([adj[grp == k] for k in range(11)])}}
+            <p>The median first-job salary rises with the number of experience types, from about $12K below similar grads with none to about $7K above with six. The groups with 8 or more are tiny (5, 1 and 0 alumni).</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:strat_gpa|ax.hexbin(withSalary[<span class="s">"final_gpa"</span>], withSalary[<span class="s">"sal_adj"</span>], gridsize=25, mincnt=1)}}
+            <p>Starting pay climbs steadily with GPA: the median goes from $19K below similar grads at a 1.75–2.0 GPA to $15K above at 3.75–4.0. GPA is the strongest factor in the regression (+$13.2K per GPA point).</p>
+          {{/CELL}}
+          </div>
+          <div class="mores">
+            <details class="more"><summary>Statistical checks behind each chart title</summary><div class="inner"><p>One factor at a time: Spearman for ordered factors, Mann-Whitney for two-group gaps (salaries are skewed, so no t-tests).</p>{{T:strategy_checks}}</div></details>
+            <details class="more"><summary>Which factors still matter together (regression)</summary><div class="inner"><p>OLS regressions for alumni with a first job. Each number is the change for one more unit of that factor, holding the others constant. Club leadership drops out: its raw gap came from leaders also interning more and having higher GPAs.</p>{{T:strategy_ols}}</div></details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block stage-panel" id="job-trajectory" data-stage="job" hidden>
+    <div class="sec-head">
+      <span class="note">Job Trajectory</span>
+      <h2>How grads find their first job, and what happens next</h2>
+      <p>Alumni only. First-job facts come from the alumni file; everything after the first job comes from their employment history. From the team's job-hunting notebook.</p>
+    </div>
+    <div class="finding-list">
+      <div class="finding">
+        <div class="sub-head"><h3>Landing the first job</h3></div>
+        <div class="stack">
+          <div class="col">
+          {{CELL:job_destinations|pd.crosstab(responded[<span class="s">"graduation_year"</span>], responded[<span class="s">"first_destination"</span>].map(groups), normalize=<span class="s">"index"</span>)}}
+            <p>Every year, most grads are employed full-time about six months out (69% to 83%). <strong>2020</strong> was the hardest year: 64% full-time and 16% still seeking.</p>
+          {{/CELL}}
+          </div>
+          <div class="grid2">
+          {{CELL:job_time_to_hire|np.sort(hired[<span class="s">"months_to_first_job"</span>].dropna())}}
+            <p>Half of hired alumni start within 0.9 months, three quarters within 3.2 months and 90% within 4.8 months. 18% start right at graduation.</p>
+          {{/CELL}}
+          {{CELL:job_channels|hired.groupby(<span class="s">"first_job_found_via"</span>)[<span class="s">"months_to_first_job"</span>].agg([<span class="s">"size"</span>, <span class="s">"median"</span>])}}
+            <p><strong>Return offers</strong> are the most common route (29% of first jobs) and by far the fastest, starting a median 0.2 months after graduation. Every other route takes about two months.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:job_industries|hired[<span class="s">"first_employer_industry"</span>].value_counts(normalize=True)}}
+            <p>46% of first jobs are in the federal ecosystem: federal contracting (22%), federal government (12%), and defense &amp; aerospace (11%).</p>
+          {{/CELL}}
+          </div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="sub-head"><h3>Pay and moving up</h3></div>
+        <div class="stack">
+          <div class="grid2">
+          {{CELL:job_regions|firstJobs.groupby(<span class="s">"region"</span>)[[<span class="s">"annual_salary_usd"</span>, <span class="s">"adjusted"</span>]].median()}}
+            <p>On paper, DC and Northern Virginia pay the most. After cost of living, <strong>remote</strong> jobs pay the most ($83.1K), and Baltimore ($73.8K) edges out DC ($72.1K).</p>
+          {{/CELL}}
+          {{CELL:job_raises|raisePct.groupby(jobs[<span class="s">"change_type"</span>]).agg([<span class="s">"median"</span>, <span class="s">"size"</span>])}}
+            <p>Moving up pays: a new employer at a higher level brings a median 21% raise and an internal promotion 18%. Lateral moves bring about 4%.</p>
+          {{/CELL}}
+          </div>
+          <div class="col">
+          {{CELL:job_ladder|pd.crosstab(yearsIn, level, normalize=<span class="s">"index"</span>)}}
+            <p>Five years after their first job, 38% of the roles alumni start are Senior or higher, up from almost none in the first two years.</p>
+          {{/CELL}}
+          </div>
+          <details class="more"><summary>Statistical checks behind each chart title</summary><div class="inner"><p>Chi-square for rates, Mann-Whitney for skewed money and time gaps. The four Baltimore comparisons are Bonferroni-corrected (p × 4). Only supported claims appear in the titles and captions.</p>{{T:job_checks}}</div></details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="hero">
+    <div>
+      <p class="eyebrow">hackUMBC 2026 · UMBC alumni data</p>
+      <h1 class="headline">
+        <span class="l">What makes</span>
+        <span class="l">a student</span>
+        <span class="l"><span class="type">successful?</span></span>
+      </h1>
+      <p class="lead">“Success” means something different to different people. Here, we use salary as the measure of success and look at how much of the variation in alumni salaries each factor explains.</p>
+      <div class="cta">
+        <a class="btn primary" href="#findings">See the findings</a>
+        <a class="btn ghost" href="#data">Browse the datasets</a>
+      </div>
+    </div>
+
+    <figure class="cell">
+      <div class="cell-in"><span class="prompt">In [1]:</span><code>first_job[<span class="s">"variance_share"</span>].style.format(<span class="s">"{:.1%}"</span>)</code></div>
+      <div class="cell-out">
+        <header>
+          <span class="chart-title">Share of salary variance explained (η², ANOVA)</span>
+          <span class="chart-sub">How much of the variation in alumni salaries each factor explains</span>
+        </header>
+        <table class="vt">
+          <thead><tr><th>Factor</th><th class="num">Starting salary</th><th class="num">Salary vs peers</th></tr></thead>
+          <tbody>{{VT}}</tbody>
+        </table>
+      </div>
+    </figure>
+  </section>
+
+  <section class="stats" aria-label="Headline numbers">
+    <div class="stat"><span class="n" data-count="{{S_MAJOR}}" data-suffix="%">{{S_MAJOR}}%</span><span class="k">Salary variance explained by major</span></div>
+    <div class="stat"><span class="n" data-count="{{S_FAMILY}}" data-suffix="%">{{S_FAMILY}}%</span><span class="k">…by first job family</span></div>
+    <div class="stat"><span class="n" data-count="{{S_INDUSTRY}}" data-suffix="%">{{S_INDUSTRY}}%</span><span class="k">…by first employer industry</span></div>
+    <div class="stat"><span class="n" data-count="{{S_UNEMP}}" data-dec="1" data-suffix="%">{{S_UNEMP}}%</span><span class="k">Alumni still seeking work</span></div>
+  </section>
+
+  <section class="block" id="findings">
+    <div class="sec-head">
+      <span class="note">From the dashboard</span>
+      <h2>Major findings</h2>
+      <p>Salary is our measure of success. Each group below tests one factor against it.</p>
+    </div>
+    <div class="finding-list">
+    <div class="finding" id="majors">
+      <div class="sub-head">
+        <h3>Majors and their effect on success</h3>
+    </div>
+    <div class="stack">
+      <div class="grid2">
+        <div class="col">
+          {{CELL:salary_by_major_degree|a.plot_salary_by_major_degree(majors[<span class="s">"alumcareerinfo"</span>])}}
+          <p>Most alumni in the dataset only hold a bachelor's degree (2,032 vs 115 with a master's), so the master's comparisons are built on small samples. The typical salary gap between Computer Science and Information Systems is small: CS alumni earn a median of about 3% more, and the two distributions overlap almost entirely.</p>
+          {{/CELL}}
+        </div>
+        <div class="col">
+          {{CELL:salary_trend|a.plot_salary_trend(majors[<span class="s">"trend"</span>])}}
+          <p>IS majors close the initial gap by around the <strong>5-year mark</strong>. Fewer alumni remain beyond year 8, so the gap at the end of the chart is a less certain result.</p>
+          {{/CELL}}
+        </div>
+      </div>
+      <p class="callout"><span><strong>Correlation between major (IS = 1) and starting salary: {{CORR}}.</strong> Squared, that is {{CORR2}}: only about <strong>{{CORR2PCT}}</strong> of the variation in starting salary is explained by major.</span></p>
+      <details class="more"><summary>Salary summary by major and degree</summary><div class="inner">{{T:majorcareerinfo}}</div></details>
+    </div>
+    </div>
+
+    <div class="finding" id="internships">
+      <div class="sub-head">
+        <h3>Internships and their effect on success</h3>
+    </div>
+    <div class="stack">
+      <div class="grid2">
+        <div class="col">
+          {{CELL:salary_by_internships|a.plot_salary_by_internships(intern[<span class="s">"df_intern"</span>])}}
+          <p>There is a large difference in starting salary between alumni with 0 and 3 internships, but the 2- and 3-internship distributions overlap heavily. <strong>Salary gains level off after 2 internships.</strong></p>
+          {{/CELL}}
+        </div>
+        <div class="col">
+          {{CELL:time_to_hire|a.plot_time_to_hire(intern[<span class="s">"df_intern"</span>])}}
+          <p>Most employed alumni with 2 or 3 internships were hired within a month of graduation, while those with 0 or 1 took much longer. A 3rd internship adds little over a 2nd for both salary and hire time.</p>
+          {{/CELL}}
+        </div>
+      </div>
+      <div class="col">
+        {{CELL:return_offers|a.plot_return_offers(intern[<span class="s">"offer_table"</span>])}}
+        <p>At every internship count, alumni whose first job was a <strong>return offer</strong> earned a higher median starting salary: +$5,250 with 1 internship and +$6,750 with 2 or 3. Return offers also become much more common with more internships (25% with 1, 47% with 2, 66% with 3), so part of the value of more internships is a better chance of converting one into a higher-paying offer.</p>
+        {{/CELL}}
+      </div>
+      <div class="mores">
+        <details class="more"><summary>Outcomes by internship count</summary><div class="inner">{{T:by_intern}}</div></details>
+        <details class="more"><summary>Return offer premium</summary><div class="inner">{{T:offer_table}}</div></details>
+      </div>
+    </div>
+    </div>
+
+    <div class="finding" id="first-job">
+      <div class="sub-head">
+        <h3>First job family and industry</h3>
+      <p>No alumni switched job families or industries, so the first job sets the track. Both factors explain far more salary variation than major does (see the variance table at the top of the page).</p>
+    </div>
+    <div class="stack">
+      <div class="col">
+        {{CELL:first_job_family|a.plot_first_job(first_job[<span class="s">"career"</span>], first_job[<span class="s">"family_summary"</span>], <span class="s">"first_family"</span>, <span class="s">"Outcomes by first job family"</span>)}}
+        <p><strong>Cybersecurity</strong> and <strong>Infrastructure &amp; Cloud</strong> earn much more than peers with the same experience, while <strong>IT Support &amp; Operations</strong> earns much less.</p>
+        {{/CELL}}
+      </div>
+      <div class="col">
+        {{CELL:first_job_industry|a.plot_first_job(first_job[<span class="s">"career"</span>], first_job[<span class="s">"industry_summary"</span>], <span class="s">"first_industry"</span>, <span class="s">"Outcomes by first employer industry"</span>)}}
+        <p><strong>Cloud &amp; Infrastructure</strong> and <strong>Telecommunications</strong> earn much more than <strong>Federal Government</strong> compared to peers. Cloud &amp; Infrastructure comes out ahead in both views.</p>
+        {{/CELL}}
+      </div>
+      <details class="more"><summary>Summary tables</summary><div class="inner">{{T:family_summary}}{{T:industry_summary}}</div></details>
+    </div>
+    </div>
+
+    <div class="finding" id="unemployment">
+      <div class="sub-head">
+        <h3>Unemployment rates</h3>
+    </div>
+    <div class="col">
+      {{CELL:unemployment|a.plot_unemployment(unemp[<span class="s">"unemp"</span>], unemp[<span class="s">"overall_rate"</span>], by_major)}}
+      <p>Unlike the other sections, this includes alumni still seeking work. Overall, <strong>{{S_UNEMP}}%</strong> of alumni in the labor force were still seeking work after graduation, and major makes almost no difference (CS {{U_CS}}% vs IS {{U_IS}}%).</p>
+        <p><strong>Internships make a much bigger difference:</strong> the rate drops steadily from {{U_RATES}} internships.</p>
+        <p>Salary and hiring speed leveled off after 2 internships, but unemployment <strong>keeps dropping with a 3rd</strong>, although that group is smaller (n={{U_N3}}).</p>
+      {{/CELL}}
+    </div>
+    </div>
+
+    <div class="finding" id="activities">
+      <div class="sub-head">
+        <h3>Student activities</h3>
+    </div>
+    <div class="stack">
+      <div class="grid2">
+        <div class="col">
+          {{CELL:experience_share|a.plot_experience_share(activities[<span class="s">"pct_curr"</span>])}}
+          <p><strong>Student organizations</strong> are by far the most common experience (66%), followed by internships (44%) and campus jobs (42%). Since internships are tied to higher salaries, faster hiring, and lower unemployment, <strong>over half of current students not having one yet</strong> is a clear opportunity, though some of this is expected since about half are freshmen or sophomores.</p>
+          {{/CELL}}
+        </div>
+        <div class="col">
+          {{CELL:top_orgs|a.plot_top_orgs(activities[<span class="s">"top10"</span>], activities[<span class="s">"baseline"</span>])}}
+          <p><strong>3 of the top 4 are certification providers</strong>, and most of the rest are internship employers in industries that also paid well as a first job, like Cloud &amp; Infrastructure, Telecommunications, and Cybersecurity Services. This shows correlation, not causation: students who pursue these may already be heading toward higher-paying fields.</p>
+          {{/CELL}}
+        </div>
+      </div>
+      <details class="more"><summary>Experience types</summary><div class="inner"><p>Internships, co-ops, and hackathons are the most time-intensive (28–40 hours/week), while student organizations, tutoring, and peer mentoring take under 8. Internships and co-ops are mostly paid; student organizations, hackathons, and competitive teams are unpaid. Cells marked n/a mean hours and pay don't apply (certifications).</p>{{T:exp_by_type}}</div></details>
+    </div>
+    </div>
+    </div>
+  </section>
+
+  <section class="block" id="method">
+    <div class="sec-head">
+      <span class="note">Method</span>
+      <h2>How we work</h2>
+      <p>Every finding goes through the same five steps. The analysis code lives in analysis.py and the dashboard in app.py.</p>
+    </div>
+    <ol class="steps">
+      <li class="step"><span class="num">01</span><h3>Load</h3><p>Six CSV files from the hackUMBC 2026 dataset, joined on each person's campus ID.</p><span class="tool">pandas · read_csv</span></li>
+      <li class="step"><span class="num">02</span><h3>Clean</h3><p>Turn "Not Applicable" into missing values, convert salaries to numbers, count repeat activities once per person.</p><span class="tool">pandas</span></li>
+      <li class="step"><span class="num">03</span><h3>Explore</h3><p>Box plots, hiring curves, and salary trends, one notebook cell per question.</p><span class="tool">Jupyter · matplotlib</span></li>
+      <li class="step"><span class="num">04</span><h3>Measure</h3><p>Variance explained by each factor, and salary compared with peers who have the same years of experience.</p><span class="tool">η² (ANOVA) · numpy</span></li>
+      <li class="step"><span class="num">05</span><h3>Share</h3><p>Package every chart as a function and serve them in an interactive dashboard.</p><span class="tool">Streamlit</span></li>
+    </ol>
+  </section>
+
+  <section class="block" id="data">
+    <div class="sec-head">
+      <span class="note">Data</span>
+      <h2>The datasets</h2>
+      <p>Six CSV files from the hackUMBC 2026 dataset, joined on campus ID.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Dataset</th><th>One row is</th><th class="num">Rows</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td>Alumni<code>alumni.csv</code></td><td class="src">A graduate, highest degree only</td><td class="num">3,200</td><td>Majors, internships, unemployment</td></tr>
+          <tr><td>Employment history<code>employment_history.csv</code></td><td class="src">One job spell</td><td class="num">6,028</td><td>Career salary trend, first job</td></tr>
+          <tr><td>Student experience<code>student_experience.csv</code></td><td class="src">One activity</td><td class="num">20,059</td><td>Activities, top organizations</td></tr>
+          <tr><td>Current students<code>students_current.csv</code></td><td class="src">A student enrolled in Fall 2026</td><td class="num">1,800</td><td>Activity participation</td></tr>
+          <tr><td>Transcripts<code>transcripts.csv</code></td><td class="src">One course attempt</td><td class="num">140,458</td><td class="unused">Not used yet</td></tr>
+          <tr><td>Course catalog<code>course_catalog.csv</code></td><td class="src">One course</td><td class="num">72</td><td class="unused">Not used yet</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total</td><td></td><td class="num">171,617</td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>A student project, not an official UMBC website.</span>
+    <span>Charts rendered by analysis.py · built with pandas, matplotlib, and Streamlit.</span>
+  </footer>
+</main>
+
+<script type="application/json" id="chart-data">{{CHART_DATA}}</script>
+<script type="application/json" id="chart-code">{{CHART_CODE}}</script>
+<script>{{CHARTS_JS}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script>{{HERO_JS}}</script>
+<script>
+  // Count-up stats. The markup already holds the real figures; the count starts
+  // when the strip first scrolls into view and always lands on them exactly.
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    const nums = document.querySelectorAll('[data-count]');
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      io.disconnect();
+      nums.forEach(n => {
+        const end = +n.dataset.count, dec = +(n.dataset.dec || 0), suffix = n.dataset.suffix || '';
+        const t0 = performance.now();
+        const step = t => {
+          const p = Math.min((t - t0) / 1100, 1);
+          n.textContent = (p < 1 ? end * (1 - (1 - p) ** 3) : end).toFixed(dec) + suffix;
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    }, { threshold: 0.3 });
+    io.observe(document.querySelector('.stats'));
+  }
+</script>

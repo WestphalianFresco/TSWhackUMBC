@@ -1,0 +1,437 @@
+<title>Freshman to First Job</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@400;700&family=Patrick+Hand&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap">
+<style>
+  /* A deliberately single-theme paper collage: every color is set explicitly. */
+  :root {
+    --paper: #F6EFE1; --white: #FFFDF7;
+    --sky: #A8D2EC; --sun: #F2B51D; --grass: #86B95B; --grass-2: #6FA24A; --path: #CFA873;
+    --brick: #C8553D; --navy: #2E3A59; --slate: #5E6E8E; --steel: #4B5A7A;
+    --ink: #2B2622; --ink-2: #4A433C;
+    --hand: "Patrick Hand", "Comic Sans MS", "Marker Felt", cursive;
+    --sketch: "Cabin Sketch", "Marker Felt", "Comic Sans MS", cursive;
+    --sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  .defs { position: absolute; width: 0; height: 0; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
+
+  /* top bar */
+  .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; height: 60px; background: color-mix(in srgb, var(--paper) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1.5px solid color-mix(in srgb, var(--ink) 18%, transparent); }
+  .nav .wrap { display: flex; align-items: center; height: 100%; max-width: 1440px; margin-inline: auto; padding-inline: clamp(16px, 4vw, 32px); }
+  .tabs { flex: 1; min-width: 0; display: flex; gap: clamp(14px, 3vw, 28px); overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+  .tabs::-webkit-scrollbar { display: none; }
+  @media (min-width: 760px) { .tabs { justify-content: space-around; padding-inline: clamp(0px, 4vw, 64px); } }
+  .tab { position: relative; padding: 6px 2px; border: 0; background: none; font: 500 15px var(--sans); color: var(--ink-2); cursor: pointer; text-decoration: none; }
+  .tab:hover { color: var(--ink); }
+  /* active tab: a crayon scribble underline that draws in */
+  .tab::after { content: ""; position: absolute; left: -4px; right: -4px; bottom: -2px; height: 8px; transform: scaleX(0); transform-origin: left; transition: transform .45s cubic-bezier(.3, 1.4, .5, 1);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 C20 2 35 7 52 4 S82 2 98 5' fill='none' stroke='%23C8553D' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
+  .tab[aria-pressed="true"] { color: var(--ink); }
+  .tab[aria-pressed="true"]::after { transform: scaleX(1); }
+
+  /* the full-screen scene: exactly one screen tall, then the page scrolls on */
+  .scene { position: relative; overflow: hidden; height: calc(100svh - 60px - env(safe-area-inset-top, 0px)); min-height: 500px;
+    background-color: var(--sky);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .scene svg { overflow: visible; }
+  .sun { position: absolute; top: 8%; right: 7%; width: clamp(80px, 11vw, 150px); }
+  .cloud { position: absolute; width: clamp(110px, 15vw, 220px); }
+  .cloud.c1 { top: 7%; left: 30%; }
+  .cloud.c2 { top: 22%; left: 58%; width: clamp(90px, 11vw, 170px); }
+  .prop { position: absolute; bottom: 21%; left: var(--zone); transform: translateX(-50%); cursor: pointer; }
+  .prop.campus { height: min(40svh, 30vw); }
+  .prop.sign { height: min(34svh, 27vw); }
+  .prop.city { height: min(50svh, 36vw); }
+  .ground { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 25%; }
+  .kid-wrap { position: absolute; left: 0; bottom: 5%; height: min(40svh, 46vw); aspect-ratio: 200 / 336; z-index: 5; }
+  .kid-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .speed { opacity: 0; }
+
+  /* character rig: limbs swing from the hip/shoulder, the body leans from the feet */
+  #kid .limb { transform-box: fill-box; transform-origin: 50% 6%; }
+  #facing, #flipper { transform-box: view-box; transform-origin: 100px 170px; }
+  #bob { transform-box: view-box; transform-origin: 100px 330px; }
+  #rays { transform-box: view-box; transform-origin: 0 0; }
+  #flag { transform-box: fill-box; transform-origin: 0% 50%; }
+  #kid :is(rect, path, circle, ellipse, polygon) { stroke: var(--ink); stroke-width: 2.6; stroke-linejoin: round; }
+  #kid .no-line { stroke: none; }
+  #kid .fit-student, #kid .fit-strategy, #kid .fit-job { display: none; }
+  #kid[data-fit="student"] .fit-student, #kid[data-fit="strategy"] .fit-strategy, #kid[data-fit="job"] .fit-job { display: inline; }
+  .scene .outline :is(rect, path, circle, ellipse, polygon, line) { stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+  .scene text { font-family: var(--hand); fill: var(--ink); }
+  .scene text.wordmark { font: 700 29px Georgia, "Times New Roman", serif; letter-spacing: 1px; fill: #2B2622; }
+  .scene .outline .flat :is(rect, path) { stroke: none; }
+
+  /* the taped paper note that tells each stage's story */
+  .note { position: absolute; left: 0; top: clamp(16px, 6svh, 56px); z-index: 6; width: fit-content; max-width: min(440px, calc(100% - 32px)); padding: 18px 22px 20px; background: var(--white); color: var(--ink);
+    box-shadow: 2px 3px 0 rgba(43, 38, 34, .12), 0 10px 24px -12px rgba(43, 38, 34, .35); }
+  .note::before { content: ""; position: absolute; top: -12px; left: 50%; width: 92px; height: 24px; transform: translateX(-50%) rotate(-3deg); background: rgba(242, 181, 29, .55); box-shadow: inset 0 0 0 1px rgba(43, 38, 34, .06); }
+  .note .step { font: 400 15px var(--hand); letter-spacing: .12em; text-transform: uppercase; color: var(--brick); }
+  .note h1 { margin: 2px 0 0; font: 700 clamp(1.6rem, 2.8vw, 2.2rem)/1.1 var(--sketch); letter-spacing: .01em; text-wrap: balance; }
+  .note p { margin: 0; font: 400 1.15rem/1.4 var(--hand); color: var(--ink-2); }
+
+  /* below the scene (preview only) */
+  .after { max-width: 1120px; margin-inline: auto; padding: clamp(48px, 8vw, 88px) clamp(16px, 4vw, 32px); }
+  .after h2 { margin: 0 0 8px; font: 700 clamp(1.8rem, 3.2vw, 2.4rem)/1.1 var(--sketch); }
+  .after p { margin: 0; max-width: 40em; font: 400 1.2rem/1.5 var(--hand); color: var(--ink-2); }
+  .after .fine { margin-top: 24px; font: 400 13px var(--sans); color: var(--ink-2); }
+  @media (prefers-reduced-motion: reduce) { .tab::after { transition: none; } }
+</style>
+
+<!-- Crayon collage filters. #crayon boils: its seed changes a few times a second so edges wobble like stop-motion. -->
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="crayon" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feTurbulence class="boil" type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="1" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="5" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2.2 0 0 0 1.95" result="holes"/>
+      <feComposite in="rough" in2="holes" operator="in" result="waxy"/>
+      <feDropShadow in="waxy" dx="2" dy="3" stdDeviation="1.4" flood-color="#2B2622" flood-opacity="0.24"/>
+    </filter>
+    <filter id="paper" x="-5%" y="-10%" width="110%" height="130%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="9" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="9" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="2" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -1.8 0 0 0 1.75" result="holes"/>
+      <feComposite in="rough" in2="holes" operator="in" result="waxy"/>
+      <feDropShadow in="waxy" dx="0" dy="-2" stdDeviation="1.5" flood-color="#2B2622" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" type="button" data-state="life" aria-pressed="true">Student Life</button>
+      <button class="tab" type="button" data-state="strategy" aria-pressed="false">Strategies</button>
+      <button class="tab" type="button" data-state="job" aria-pressed="false">Job Trajectory</button>
+      <a class="tab" href="#findings">Findings</a>
+    </nav>
+  </div>
+</header>
+
+<section class="scene" id="scene" aria-label="From freshman to first job">
+  <!-- sky pieces -->
+  <svg class="sun" viewBox="-70 -70 140 140" aria-hidden="true">
+    <g filter="url(#crayon)" class="outline">
+      <g id="rays">
+        <line x1="0" y1="-66" x2="0" y2="-52" /><line x1="0" y1="66" x2="0" y2="52" /><line x1="-66" y1="0" x2="-52" y2="0" /><line x1="66" y1="0" x2="52" y2="0" />
+        <line x1="-47" y1="-47" x2="-37" y2="-37" /><line x1="47" y1="47" x2="37" y2="37" /><line x1="-47" y1="47" x2="-37" y2="37" /><line x1="47" y1="-47" x2="37" y2="-37" />
+      </g>
+      <circle r="40" fill="#F2B51D" />
+    </g>
+  </svg>
+  <svg class="cloud c1" viewBox="0 0 220 90" aria-hidden="true"><g filter="url(#crayon)" class="outline"><path d="M20 78 C2 78 2 52 24 50 C22 26 52 18 66 34 C74 10 116 8 124 36 C140 20 172 28 170 50 C200 48 206 78 184 78 Z" fill="#FFFDF7"/></g></svg>
+  <svg class="cloud c2" viewBox="0 0 220 90" aria-hidden="true"><g filter="url(#crayon)" class="outline"><path d="M24 78 C4 76 8 50 30 52 C30 30 62 24 74 40 C88 18 128 22 130 46 C160 36 184 54 172 78 Z" fill="#FFFDF7"/></g></svg>
+
+  <!-- left third: UMBC campus (after the view from the entrance: admin tower, engineering building, the long MD-flag wall) -->
+  <svg class="prop campus" data-state="life" style="--zone: 16.667%" viewBox="0 0 400 300" aria-hidden="true">
+    <defs>
+      <clipPath id="flagShape"><path d="M320 -40 C338 -46 360 -34 390 -40 V18 C360 24 338 12 320 18 Z"/></clipPath>
+      <!-- the entrance wall's grey Maryland-flag checker -->
+      <pattern id="mdFlag" width="24" height="24" patternUnits="userSpaceOnUse">
+        <rect width="24" height="24" fill="#A3A8AB"/>
+        <path d="M0 0h3v12H0zM6 0h3v12H6zM12 12h3v12h-3zM18 12h3v12h-3z" fill="#858A8E"/>
+        <path d="M12 6h12M18 0v12M0 18h12M6 12v12" stroke="#CBCFD1" stroke-width="3"/>
+        <path d="M0 12L12 0M12 24L24 12" stroke="#CBCFD1" stroke-width="1.5"/>
+      </pattern>
+    </defs>
+    <g filter="url(#crayon)" class="outline">
+      <!-- back: red brick block with a stepped roof -->
+      <path d="M150 272 V196 H176 V184 H214 V196 H248 V272 Z" fill="#B3503C"/>
+      <!-- left: brick and glass engineering building -->
+      <rect x="4" y="150" width="70" height="122" fill="#B55A43"/>
+      <g class="flat" id="leftWindows"></g>
+      <rect x="70" y="170" width="84" height="102" fill="#B4C2CE"/>
+      <rect x="64" y="160" width="96" height="12" fill="#8E9AA6"/>
+      <g class="flat"><rect x="72" y="182" width="80" height="9" fill="#6F8697"/><rect x="72" y="204" width="80" height="9" fill="#6F8697"/><rect x="72" y="226" width="80" height="9" fill="#6F8697"/></g>
+      <!-- right: the tall brick administration tower -->
+      <rect x="272" y="22" width="106" height="250" fill="#C06E50"/>
+      <g class="flat" id="towerFloors"></g>
+      <rect x="282" y="8" width="22" height="14" fill="#8FB4B8"/>
+      <!-- trees, with a redbud in bloom -->
+      <circle cx="176" cy="238" r="26" fill="#6FA24A"/><circle cx="206" cy="228" r="30" fill="#86B95B"/>
+      <circle cx="248" cy="242" r="22" fill="#B6489C"/><circle cx="266" cy="250" r="16" fill="#C95BAE"/>
+      <circle cx="40" cy="246" r="22" fill="#86B95B"/>
+      <!-- Retriever flag on the tower roof -->
+      <line x1="318" y1="-46" x2="318" y2="22"/>
+      <g id="flag">
+        <image href="assets/retriever-logo.png" x="318" y="-48" width="74" height="72" preserveAspectRatio="xMidYMid slice" clip-path="url(#flagShape)"/>
+        <path d="M320 -40 C338 -46 360 -34 390 -40 V18 C360 24 338 12 320 18 Z" fill="none"/>
+      </g>
+      <!-- the long UMBC entrance wall -->
+      <path d="M0 240 C120 236 260 250 400 256 V284 H0 Z" fill="url(#mdFlag)"/>
+      <rect x="0" y="282" width="400" height="8" fill="#3E4246"/>
+      <text x="22" y="273" class="wordmark">UMBC</text>
+    </g>
+  </svg>
+
+  <!-- middle: the crossroads of strategies -->
+  <svg class="prop sign" data-state="strategy" style="--zone: 50%" viewBox="0 0 240 300" aria-hidden="true">
+    <g filter="url(#crayon)" class="outline">
+      <rect x="112" y="30" width="16" height="268" fill="#9A6A3A"/>
+      <polygon points="40,44 186,44 212,64 186,84 40,84" fill="#F2B51D"/>
+      <text x="56" y="72" font-size="19" stroke="none">INTERNSHIPS</text>
+      <polygon points="200,104 66,104 40,124 66,144 200,144" fill="#FFFDF7"/>
+      <text x="92" y="132" font-size="19" stroke="none">CLUBS</text>
+      <polygon points="30,164 196,164 222,184 196,204 30,204" fill="#86B95B"/>
+      <text x="40" y="192" font-size="18" stroke="none">CERTIFICATIONS</text>
+      <ellipse cx="120" cy="296" rx="44" ry="7" fill="#6FA24A"/>
+    </g>
+  </svg>
+
+  <!-- right third: the city -->
+  <svg class="prop city" data-state="job" style="--zone: 83.333%" viewBox="0 0 360 330" aria-hidden="true">
+    <g filter="url(#crayon)" class="outline" id="city">
+      <!-- mixed rooflines: pointed, flat with a sign, spire, flat with a rooftop block -->
+      <polygon points="8,130 44,90 80,130" fill="#4B5A7A"/>
+      <rect x="8" y="130" width="72" height="198" fill="#5E6E8E"/>
+      <rect x="92" y="36" width="82" height="292" fill="#2E3A59"/>
+      <line x1="222" y1="16" x2="222" y2="44"/>
+      <polygon points="186,94 206,58 222,40 238,58 258,94" fill="#3E4C6B"/>
+      <rect x="186" y="94" width="72" height="234" fill="#4B5A7A"/>
+      <rect x="296" y="144" width="36" height="16" fill="#3E4C6B"/>
+      <rect x="270" y="160" width="84" height="168" fill="#5E6E8E"/>
+      <rect x="108" y="12" width="50" height="24" fill="#FFFDF7"/>
+      <text x="114" y="29" font-size="14" stroke="none">HIRING</text>
+      <g id="windows" class="no-line"></g>
+    </g>
+  </svg>
+
+  <!-- ground: torn grass paper with a kraft path running from campus to the city -->
+  <svg class="ground" viewBox="0 0 1200 220" preserveAspectRatio="none" aria-hidden="true">
+    <g filter="url(#paper)">
+      <path id="grass" fill="#86B95B" d=""/>
+      <path d="M-20 150 C180 118 360 170 600 138 S1000 112 1220 140" fill="none" stroke="#CFA873" stroke-width="46" stroke-linecap="round"/>
+    </g>
+  </svg>
+
+  <!-- the character -->
+  <div class="kid-wrap" id="kidWrap">
+    <svg class="speed" id="speed" viewBox="0 0 200 336" aria-hidden="true">
+      <g filter="url(#crayon)" stroke="#FFFDF7" stroke-width="7" stroke-linecap="round" fill="none">
+        <path d="M-150 150 H10"/><path d="M-120 200 H20"/><path d="M-140 250 H0"/>
+      </g>
+    </svg>
+    <svg id="kid" data-fit="student" viewBox="0 0 200 336" role="img" aria-label="A student in a hoodie with a backpack">
+      <g id="facing"><g id="flipper"><g id="bob" filter="url(#crayon)">
+        <!-- backpack peeks out behind (freshman) -->
+        <rect class="fit-student" x="36" y="116" width="34" height="78" rx="12" fill="#C8553D"/>
+        <!-- back arm -->
+        <g id="armB" class="limb">
+          <rect class="fit-student" x="48" y="114" width="22" height="86" rx="10" fill="#E9A93A"/>
+          <g class="fit-strategy"><rect x="48" y="114" width="22" height="46" rx="10" fill="#9CC3E6"/><rect x="50" y="156" width="18" height="44" rx="8" fill="#F1C39A"/></g>
+          <rect class="fit-job" x="48" y="114" width="22" height="86" rx="10" fill="#2E3A59"/>
+          <circle cx="59" cy="204" r="10" fill="#F1C39A"/>
+        </g>
+        <!-- legs -->
+        <g id="legB" class="limb">
+          <rect x="76" y="212" width="23" height="108" rx="9" fill="#4A6FA5" class="fit-student"/>
+          <rect x="76" y="212" width="23" height="108" rx="9" fill="#B99466" class="fit-strategy"/>
+          <rect x="76" y="212" width="23" height="108" rx="9" fill="#263049" class="fit-job"/>
+          <ellipse cx="86" cy="322" rx="18" ry="8" fill="#FFFDF7" class="fit-student"/>
+          <ellipse cx="86" cy="322" rx="18" ry="8" fill="#7A4E2D" class="fit-strategy"/>
+          <ellipse cx="86" cy="322" rx="18" ry="8" fill="#1E1B18" class="fit-job"/>
+        </g>
+        <g id="legF" class="limb">
+          <rect x="101" y="212" width="23" height="108" rx="9" fill="#4A6FA5" class="fit-student"/>
+          <rect x="101" y="212" width="23" height="108" rx="9" fill="#B99466" class="fit-strategy"/>
+          <rect x="101" y="212" width="23" height="108" rx="9" fill="#263049" class="fit-job"/>
+          <ellipse cx="116" cy="322" rx="18" ry="8" fill="#FFFDF7" class="fit-student"/>
+          <ellipse cx="116" cy="322" rx="18" ry="8" fill="#7A4E2D" class="fit-strategy"/>
+          <ellipse cx="116" cy="322" rx="18" ry="8" fill="#1E1B18" class="fit-job"/>
+        </g>
+        <!-- torso: hoodie / shirt with an intern badge / suit -->
+        <g class="fit-student">
+          <path d="M62 124 Q62 108 78 106 H122 Q138 108 138 124 L142 222 H58 Z" fill="#E9A93A"/>
+          <rect x="76" y="172" width="48" height="24" rx="6" fill="#D1902A"/>
+          <line x1="92" y1="112" x2="90" y2="142"/><line x1="108" y1="112" x2="110" y2="142"/>
+          <path d="M72 108 L84 190" fill="none" stroke="#8E2F1E" stroke-width="5"/>
+        </g>
+        <g class="fit-strategy">
+          <path d="M64 122 Q64 108 80 106 H120 Q136 108 136 122 L138 220 H62 Z" fill="#9CC3E6"/>
+          <polygon points="86,106 100,122 114,106" fill="#FFFDF7"/>
+          <path d="M88 110 L100 160 L112 110" fill="none" stroke="#C8553D" stroke-width="3"/>
+          <rect x="89" y="156" width="22" height="28" rx="3" fill="#FFFDF7"/>
+          <rect x="93" y="162" width="14" height="4" fill="#C8553D" class="no-line"/>
+        </g>
+        <g class="fit-job">
+          <path d="M60 124 Q60 106 78 104 H122 Q140 106 140 124 L144 224 H56 Z" fill="#2E3A59"/>
+          <polygon points="84,104 116,104 100,158" fill="#FFFDF7"/>
+          <polygon points="96,110 104,110 107,152 100,162 93,152" fill="#C8553D"/>
+          <path d="M84 104 L100 158 L94 170" fill="none"/><path d="M116 104 L100 158 L106 170" fill="none"/>
+          <circle cx="100" cy="186" r="3" fill="#FFFDF7"/><circle cx="100" cy="204" r="3" fill="#FFFDF7"/>
+        </g>
+        <!-- head -->
+        <rect x="91" y="94" width="18" height="16" fill="#F1C39A"/>
+        <circle cx="100" cy="68" r="34" fill="#F1C39A"/>
+        <path d="M66 66 Q64 30 100 30 Q136 30 134 64 Q124 50 104 52 Q84 46 66 66 Z" fill="#3B2A20"/>
+        <circle cx="112" cy="70" r="3.4" fill="#2B2622" class="no-line"/>
+        <circle cx="88" cy="70" r="3.4" fill="#2B2622" class="no-line"/>
+        <path d="M90 84 Q100 92 112 84" fill="none"/>
+        <circle cx="120" cy="82" r="5" fill="#E88C7A" class="no-line" opacity=".6"/>
+        <!-- front arm, with the notebook or briefcase -->
+        <g id="armF" class="limb">
+          <rect class="fit-student" x="130" y="114" width="22" height="86" rx="10" fill="#E9A93A"/>
+          <g class="fit-strategy"><rect x="130" y="114" width="22" height="46" rx="10" fill="#9CC3E6"/><rect x="132" y="156" width="18" height="44" rx="8" fill="#F1C39A"/>
+            <rect x="126" y="190" width="26" height="32" rx="3" fill="#86B95B"/><line x1="131" y1="200" x2="147" y2="200"/><line x1="131" y1="208" x2="147" y2="208"/></g>
+          <rect class="fit-job" x="130" y="114" width="22" height="86" rx="10" fill="#2E3A59"/>
+          <g class="fit-job"><path d="M134 204 V196 H150 V204" fill="none"/><rect x="122" y="204" width="40" height="28" rx="4" fill="#7A4E2D"/></g>
+          <circle cx="141" cy="204" r="10" fill="#F1C39A"/>
+        </g>
+      </g></g></g>
+    </svg>
+  </div>
+
+  <div class="note" id="note" aria-live="polite">
+    <div class="step" id="noteStep">Student Life</div>
+    <h1 id="noteTitle">Day one on campus</h1>
+    <p id="noteBody" hidden></p>
+  </div>
+</section>
+
+<section class="after" id="findings">
+  <h2>Findings</h2>
+  <p>In the real page, the Major findings charts continue here. The scene above takes exactly one screen, so scrolling down moves past it like any other section.</p>
+  <p class="fine">A student project, not an official UMBC website.</p>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script>
+(() => {
+  const A = window.anime;
+  const set = (A.utils && A.utils.set) || A.set;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+  const scene = $('scene'), wrap = $('kidWrap'), kid = $('kid'), facing = $('facing'), flipper = $('flipper'), bob = $('bob');
+  const note = $('note'), speed = $('speed');
+  const legs = [$('legB'), $('legF')], arms = [$('armB'), $('armF')];
+
+  // Each stage: where the character stands (share of the scene width), what he wears, and the note's story.
+  const STATES = {
+    life: { zone: 1 / 6, fit: 'student', label: 'A student in a hoodie with a backpack', step: 'Student Life', title: 'Day one on campus', body: '' },
+    strategy: { zone: 0.58, fit: 'strategy', label: 'A student in a shirt with an intern badge, holding a notebook', step: 'Strategies', title: 'Stack up experience', body: '' },
+    job: { zone: 5 / 6, fit: 'job', label: 'A graduate in a suit and tie, carrying a briefcase', step: 'Job Trajectory', title: 'Suit up', body: '' },
+  };
+
+  /* ── scene dressing built in code (city windows, torn grass edge) ─────── */
+  const NS = 'http://www.w3.org/2000/svg';
+  const win = $('windows');
+  [[18, 146, 3, 9], [102, 52, 3, 13], [196, 110, 3, 10], [282, 176, 4, 7]].forEach(([x0, y0, cols, rows]) => {
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if ((r * 7 + c * 3) % 5 === 0) continue;   // a few windows dark
+      const w = document.createElementNS(NS, 'rect');
+      w.setAttribute('x', x0 + c * 20); w.setAttribute('y', y0 + r * 20); w.setAttribute('width', 11); w.setAttribute('height', 12);
+      w.setAttribute('fill', '#F2D27A');
+      win.appendChild(w);
+    }
+  });
+  const add = (parent, attrs) => { const r = document.createElementNS(NS, 'rect'); for (const k in attrs) r.setAttribute(k, attrs[k]); parent.appendChild(r); };
+  const floors = $('towerFloors');
+  for (let f = 0; f < 12; f++) {
+    const y = 30 + f * 20;
+    add(floors, { x: 272, y, width: 106, height: 4, fill: '#E3CFAE' });
+    for (let c = 0; c < 8; c++) add(floors, { x: 280 + c * 12, y: y + 6, width: 6, height: 11, fill: '#3A3A42' });
+  }
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) add($('leftWindows'), { x: 12 + c * 15, y: 162 + r * 24, width: 8, height: 12, fill: '#3A3A42' });
+  let edge = 'M0 220 V34';
+  for (let x = 0; x <= 1200; x += 24) edge += ` L${x} ${30 + ((x * 37) % 17) - (x % 48 ? 0 : 6)}`;
+  $('grass').setAttribute('d', edge + ' V220 Z');
+
+  /* ── motion ───────────────────────────────────────────────────────────── */
+  let current = null, flipTimer = null;
+  const posX = s => scene.clientWidth * STATES[s].zone - wrap.offsetWidth / 2;
+  const currentX = () => wrap.getBoundingClientRect().left - scene.getBoundingClientRect().left;
+  function placeNote(s) {
+    const w = note.offsetWidth, W = scene.clientWidth;
+    set(note, { x: Math.min(Math.max(W * STATES[s].zone - w / 2, 16), W - w - 16) });
+  };
+
+  function rest(ms = 280) {
+    A.animate([...legs, ...arms], { rotate: 0, duration: ms, ease: 'outQuad' });
+    A.animate(bob, { y: 0, rotate: 0, duration: ms, ease: 'outQuad' });
+    A.animate(speed, { opacity: 0, duration: 200 });
+  }
+  function walk(step = 300) {
+    const swing = (el, deg) => A.animate(el, { rotate: [deg, -deg], duration: step, loop: true, alternate: true, ease: 'inOutSine' });
+    swing(legs[0], 22); swing(legs[1], -22); swing(arms[0], -20); swing(arms[1], 20);
+    A.animate(bob, { y: [0, -7], rotate: 0, duration: step / 2, loop: true, alternate: true, ease: 'inOutSine' });
+  }
+  function slide() {   // glide pose: lean in, one leg forward, arms back, speed lines behind
+    A.animate(legs[0], { rotate: 18, duration: 240, ease: 'outQuad' });
+    A.animate(legs[1], { rotate: -28, duration: 240, ease: 'outQuad' });
+    A.animate(arms[0], { rotate: 42, duration: 240, ease: 'outQuad' });
+    A.animate(arms[1], { rotate: -34, duration: 240, ease: 'outQuad' });
+    A.animate(bob, { rotate: 10, y: 6, duration: 260, ease: 'outQuad' });
+    A.animate(speed, { opacity: [0, 1], duration: 260 });
+  }
+  // outfit change: the cut-out turns edge-on like a paper doll, swaps clothes, and snaps back
+  function paperFlip(fit, label) {
+    A.animate(flipper, { scaleX: [1, 0.04], duration: 150, ease: 'inQuad', onComplete: () => {
+      kid.dataset.fit = fit; kid.setAttribute('aria-label', label);
+      A.animate(flipper, { scaleX: [0.04, 1], duration: 320, ease: 'outBack' });
+    } });
+  }
+  function showNote(s, instant) {
+    const st = STATES[s];
+    const fill = () => { $('noteStep').textContent = st.step; $('noteTitle').textContent = st.title; $('noteBody').textContent = st.body; $('noteBody').hidden = !st.body; placeNote(s); };
+    if (instant) { fill(); A.animate(note, { opacity: [0, 1], rotate: [4, -1.5], y: [16, 0], duration: reduce ? 0 : 700, ease: 'outBack' }); return; }
+    A.animate(note, { opacity: 0, rotate: -6, y: -12, duration: 170, ease: 'inQuad', onComplete: () => {
+      fill();
+      A.animate(note, { opacity: [0, 1], rotate: [5, -1.5], y: [14, 0], duration: 560, ease: 'outBack' });
+    } });
+  }
+
+  function go(s, first = false) {
+    if (s === current) return;
+    const st = STATES[s];
+    document.querySelectorAll('.tab[data-state]').forEach(t => t.setAttribute('aria-pressed', String(t.dataset.state === s)));
+    const x = posX(s);
+    showNote(s, first);
+    clearTimeout(flipTimer);
+
+    if (first || reduce) {
+      set(wrap, { x });
+      kid.dataset.fit = st.fit; kid.setAttribute('aria-label', st.label);
+      if (first && !reduce) A.animate(wrap, { y: [-90, 0], opacity: [0, 1], duration: 1000, ease: 'outBounce' });
+      current = s;
+      return;
+    }
+
+    const from = currentX(), dir = x >= from ? 1 : -1, dist = Math.abs(x - from);
+    const gliding = s === 'job' && dir > 0;   // he slides into the job; everything else he walks
+    const dur = Math.max(700, Math.min(2600, dist * (gliding ? 1.25 : 2.7)));
+    A.animate(facing, { scaleX: dir, duration: 220, ease: 'outQuad' });
+    gliding ? slide() : walk();
+    if (st.fit !== kid.dataset.fit) flipTimer = setTimeout(() => paperFlip(st.fit, st.label), dur * 0.45);
+    A.animate(wrap, { x, duration: dur, ease: gliding ? 'inOutQuart' : 'inOutSine', onComplete: () => {
+      rest();
+      A.animate(facing, { scaleX: 1, duration: 260, delay: 120, ease: 'outQuad' });   // turn back to face the page
+    } });
+    current = s;
+  }
+
+  document.querySelectorAll('[data-state]').forEach(el => el.addEventListener('click', () => {
+    if (scrollY > 8) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    go(el.dataset.state);
+  }));
+  addEventListener('resize', () => { if (current) { set(wrap, { x: posX(current) }); placeNote(current); } });
+
+  /* ── ambient: drifting clouds, turning sun, boiling crayon lines ──────── */
+  if (!reduce) {
+    A.animate('.cloud.c1', { x: [-18, 26], duration: 9000, loop: true, alternate: true, ease: 'inOutSine' });
+    A.animate('.cloud.c2', { x: [22, -20], duration: 11000, loop: true, alternate: true, ease: 'inOutSine' });
+    A.animate('#rays', { rotate: 360, duration: 40000, loop: true, ease: 'linear' });
+    A.animate('#flag', { skewY: [-5, 4], scaleX: [1, 0.94], duration: 1400, loop: true, alternate: true, ease: 'inOutSine' });
+    let visible = true, seed = 1;
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; }).observe(scene);
+    const boil = [...document.querySelectorAll('.boil')];
+    setInterval(() => { if (!visible) return; seed = (seed % 3) + 1; boil.forEach(t => t.setAttribute('seed', seed)); }, 125);
+  }
+
+  go('life', true);
+})();
+</script>

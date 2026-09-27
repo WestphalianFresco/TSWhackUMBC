@@ -1,0 +1,968 @@
+<title>Success Signals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap">
+<style>
+  :root {
+    --bg: #FAFAF7; --surface: #FFFFFF; --code-bg: #F3F2EE;
+    /* chart series: analysis.py's palette, validated per surface */
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+    --ink: #151412; --ink-2: #3B3934; --muted: #5F5C55;
+    --rule: #E5E2DA; --grid: #ECEAE3;
+    --gold: #F2B51D; --on-gold: #151412; --gold-ink: #8A6200;
+    --mark: #C28A00;
+    --tint: #FDF4DC;
+    --shadow: 0 1px 2px rgba(21,20,18,.04), 0 12px 32px -12px rgba(21,20,18,.12);
+    --serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+    --sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #11100F; --surface: #1A1917; --code-bg: #151413;
+      --ink: #F1EFEA; --ink-2: #D5D2CA; --muted: #A29E95;
+      --rule: #2C2B28; --grid: #22211F;
+      --gold-ink: #F2C04E; --mark: #BD8818;
+      --tint: #2A2310;
+      --s1: #3b87e0; --s2: #e0602c; --s3: #1fa574; --s4: #b58510;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #11100F; --surface: #1A1917; --code-bg: #151413;
+    --ink: #F1EFEA; --ink-2: #D5D2CA; --muted: #A29E95;
+    --rule: #2C2B28; --grid: #22211F;
+    --gold-ink: #F2C04E; --mark: #BD8818;
+    --tint: #2A2310;
+    --s1: #3b87e0; --s2: #e0602c; --s3: #1fa574; --s4: #b58510;
+    --shadow: none;
+  }
+
+  html { scroll-behavior: smooth; scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 72px); }
+  body { background: var(--bg); color: var(--ink); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin-inline: auto; padding-inline: clamp(16px, 4vw, 32px); }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 3px; border-radius: 4px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 500; text-wrap: balance; margin: 0; }
+  p { margin: 0; }
+
+  /* nav */
+  .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 20px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; flex: none; font: 600 17px var(--serif); text-decoration: none; }
+  .brand svg { width: 22px; height: 22px; }
+  .nav nav { display: flex; gap: clamp(12px, 2.4vw, 24px); overflow-x: auto; white-space: nowrap; scrollbar-width: none; font-size: 14px; font-weight: 500; }
+  .nav nav::-webkit-scrollbar { display: none; }
+  .nav nav a { text-decoration: none; color: var(--muted); }
+  .nav nav a:hover { color: var(--ink); }
+
+  /* hero */
+  .hero { position: relative; display: grid; gap: clamp(32px, 5vw, 56px); align-items: center; padding-block: clamp(48px, 8vw, 96px) clamp(40px, 6vw, 72px); }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(var(--grid) 1.2px, transparent 1.2px) 0 0 / 22px 22px; -webkit-mask-image: radial-gradient(ellipse at 70% 40%, #000 20%, transparent 70%); mask-image: radial-gradient(ellipse at 70% 40%, #000 20%, transparent 70%); }
+  @media (min-width: 900px) { .hero { grid-template-columns: 1fr 1fr; } }
+  .hero > *, .grid2 > *, .grid21 > * { min-width: 0; }
+  .eyebrow { display: flex; align-items: center; gap: 10px; font: 500 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+  .headline { margin-top: 20px; font-size: clamp(2.5rem, 5.4vw, 4.25rem); line-height: 1.04; letter-spacing: -.02em; }
+  .headline .l { display: block; animation: rise .8s cubic-bezier(.2,.7,.2,1) both; }
+  .headline .l:nth-child(2) { animation-delay: .12s; }
+  .headline .l:nth-child(3) { animation-delay: .24s; }
+  .type { font-style: italic; background: linear-gradient(transparent 64%, color-mix(in srgb, var(--gold) 50%, transparent) 64%); padding-inline: .04em; }
+  .lead { margin-top: 24px; max-width: 34em; font: 400 1.2rem/1.55 var(--serif); color: var(--ink-2); animation: rise .8s .36s cubic-bezier(.2,.7,.2,1) both; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; animation: rise .8s .48s cubic-bezier(.2,.7,.2,1) both; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; font: 600 15px var(--sans); text-decoration: none; transition: transform .15s, background-color .15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--gold); color: var(--on-gold); }
+  .btn.ghost { border: 1px solid var(--rule); background: var(--surface); }
+  .btn.ghost:hover { border-color: var(--muted); }
+
+  /* notebook cell */
+  .cell { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .hero .cell { animation: rise .9s .3s cubic-bezier(.2,.7,.2,1) both; }
+  .cell-in { display: flex; gap: 12px; padding: 10px 16px; background: var(--code-bg); border-bottom: 1px solid var(--rule); font: 400 13px/1.5 var(--mono); overflow-x: auto; white-space: nowrap; }
+  .prompt { color: var(--muted); flex: none; }
+  .cell-in .s { color: var(--gold-ink); }
+  .cell-out { padding: 16px 16px 12px; }
+  .cell-out header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+  .chart-title { font: 600 15px var(--sans); }
+  .chart-sub { font-size: 13px; color: var(--muted); }
+  /* charts (drawn by charts.js) */
+  .chart { display: flex; flex-direction: column; gap: 12px; padding: 16px 16px 14px; }
+  .chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 20px; }
+  .chart-head .chart-title { font: 600 15px var(--sans); }
+  .chart-head .chart-sub { font-size: 13px; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink-2); }
+  .legend li { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 11px; height: 11px; border-radius: 3px; }
+  .chart-scroll { overflow-x: auto; }
+  .chart-inner { position: relative; }
+  .chart-svg { display: block; overflow: visible; }
+  .chart-svg text { font: 400 11px var(--mono); fill: var(--muted); }
+  .chart-svg .lab { font: 400 12px var(--sans); fill: var(--ink-2); }
+  .chart-svg .lab-strong { font: 500 13px var(--sans); fill: var(--ink); }
+  .chart-svg .n { font: 400 12px var(--sans); fill: var(--muted); }
+  .chart-svg .val { font: 500 11px var(--mono); fill: var(--ink); }
+  .chart-svg .in { font: 600 11px var(--sans); fill: #fff; }
+  .chart-svg .grid { stroke: var(--grid); stroke-width: 1; }
+  .chart-svg .base { stroke: var(--rule); stroke-width: 1; }
+  .chart-svg .zero { stroke: var(--muted); stroke-width: 1; }
+  .chart-svg .ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 4; }
+  .chart-svg .xhair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  .chart-svg .xdot { stroke: var(--surface); stroke-width: 2; }
+  .chart-note { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .chart-tip { position: absolute; z-index: 2; padding: 7px 10px; border-radius: 8px; background: var(--ink); color: var(--bg); font: 500 12px/1.45 var(--sans); white-space: nowrap; pointer-events: none; box-shadow: var(--shadow); }
+  .chart-tip b { font-weight: 600; }
+  .chart-table summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  .chart-table summary:hover { color: var(--ink); }
+  .chart-table .table-wrap { margin-top: 10px; border-radius: 10px; }
+  .chart-table table { font-size: 13px; }
+  .chart-table th, .chart-table td { padding: 8px 14px; }
+
+  /* chart motion: charts.js sets each mark's progress from the scroll position every frame */
+  .plot .grow, .plot .grow-y { transform-box: fill-box; }
+  .plot .grow { transform-origin: left center; }
+  .plot .grow.from-right { transform-origin: right center; }
+  .plot .grow-y { transform-origin: center bottom; }
+  .plot .grow.mid, .plot .grow-y.mid { transform-origin: center; }
+  .plot .draw { stroke-dasharray: 1; }
+
+  /* variance table in the hero cell */
+  .vt { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vt th, .vt td { padding: 10px 8px; border-bottom: 1px solid var(--rule); text-align: left; }
+  .vt th { font: 500 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .vt tr:last-child td { border-bottom: 0; }
+  .vt td.num, .vt th.num { text-align: right; font: 500 14px var(--mono); font-variant-numeric: tabular-nums; }
+  .vt th.num { font: 500 11px var(--sans); }
+  .vt td code { display: block; font: 400 11px var(--mono); color: var(--muted); }
+  .vbar { display: block; height: 8px; margin-top: 6px; margin-left: auto; width: calc(var(--v) * 4%); max-width: 100%; background: var(--mark); border-radius: 2px; }
+
+  /* stats strip */
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 16px; padding-block: 28px; border-block: 1px solid var(--rule); }
+  @media (min-width: 720px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat .n { font: 500 clamp(1.6rem, 3vw, 2.1rem)/1.1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .stat .k { font-size: 14px; color: var(--muted); }
+
+  /* sections */
+  section.block { padding-block: clamp(56px, 8vw, 88px); border-bottom: 1px solid var(--rule); }
+  .sec-head { display: flex; flex-direction: column; gap: 10px; max-width: 42em; margin-bottom: 36px; }
+  .sec-head h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); line-height: 1.1; letter-spacing: -.015em; }
+  .sec-head p { font: 400 1.1rem/1.55 var(--serif); color: var(--ink-2); }
+  .note { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); }
+  .stack { display: flex; flex-direction: column; gap: 40px; }
+  .grid2, .grid21 { display: grid; gap: 40px; align-items: start; }
+  @media (min-width: 900px) { .grid2 { grid-template-columns: 1fr 1fr; } .grid21 { grid-template-columns: 2fr 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 16px; }
+  .prose { display: flex; flex-direction: column; gap: 12px; max-width: 42em; }
+  .prose p { font: 400 1.05rem/1.6 var(--serif); color: var(--ink-2); }
+  .prose strong { font-weight: 600; color: var(--ink); }
+  .callout { display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; border-radius: 12px; background: var(--tint); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); font: 400 1.05rem/1.6 var(--serif); color: var(--ink-2); }
+  .callout strong { font-weight: 600; color: var(--ink); }
+
+  /* collapsible tables (the app's expanders) */
+  details.more { border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  details.more summary { display: flex; align-items: center; gap: 10px; padding: 14px 20px; cursor: pointer; font: 500 15px var(--sans); list-style: none; }
+  details.more summary::-webkit-details-marker { display: none; }
+  details.more summary::before { content: ""; width: 7px; height: 7px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
+  details.more[open] summary::before { transform: rotate(45deg); }
+  details.more .inner { display: flex; flex-direction: column; gap: 16px; padding: 0 20px 20px; }
+  details.more .inner > p { font-size: 15px; color: var(--ink-2); max-width: 46em; }
+  details.more .table-wrap { border-radius: 10px; }
+  .mores { display: flex; flex-direction: column; gap: 12px; }
+
+  /* tables */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 14px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .table-wrap table { min-width: 600px; }
+  th, td { padding: 12px 18px; text-align: left; border-bottom: 1px solid var(--rule); }
+  tbody tr:last-child td { border-bottom: 0; }
+  th { font: 500 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td:first-child { font-weight: 500; }
+  td:first-child code { display: block; font: 400 12px var(--mono); color: var(--muted); }
+  td.src { color: var(--ink-2); }
+  td.unused { color: var(--muted); font-style: italic; }
+  tfoot td { border-top: 1px solid var(--rule); border-bottom: 0; font-weight: 600; }
+
+  /* method */
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; }
+  @media (min-width: 900px) { .steps { grid-template-columns: repeat(5, 1fr); gap: 24px; } }
+  .step { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  .step .num { font: 500 13px var(--mono); color: var(--gold-ink); }
+  .step h3 { font-size: 1.45rem; }
+  .step p { font-size: 15px; color: var(--ink-2); }
+  .step .tool { margin-top: 4px; font: 400 12px var(--mono); color: var(--muted); }
+
+  footer { padding-block: 40px 56px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(.5em); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Success Signals home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 13h4l2.5-6 4 11 3-8 1.5 3H22" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Success Signals
+    </a>
+    <nav aria-label="Sections">
+      <a href="#majors">Majors</a>
+      <a href="#internships">Internships</a>
+      <a href="#first-job">First job</a>
+      <a href="#unemployment">Unemployment</a>
+      <a href="#activities">Activities</a>
+      <a href="#data">Data</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top" class="wrap">
+  <section class="hero">
+    <div>
+      <p class="eyebrow">hackUMBC 2026 · UMBC alumni data</p>
+      <h1 class="headline">
+        <span class="l">What makes</span>
+        <span class="l">a student</span>
+        <span class="l"><span class="type">successful?</span></span>
+      </h1>
+      <p class="lead">“Success” means something different to different people. Here, we use salary as the measure of success and look at how much of the variation in alumni salaries each factor explains.</p>
+      <div class="cta">
+        <a class="btn primary" href="#majors">See the findings</a>
+        <a class="btn ghost" href="#data">Browse the datasets</a>
+      </div>
+    </div>
+
+    <figure class="cell">
+      <div class="cell-in"><span class="prompt">In [1]:</span><code>first_job[<span class="s">"variance_share"</span>].style.format(<span class="s">"{:.1%}"</span>)</code></div>
+      <div class="cell-out">
+        <header>
+          <span class="chart-title">Share of salary variance explained (η², ANOVA)</span>
+          <span class="chart-sub">How much of the variation in alumni salaries each factor explains</span>
+        </header>
+        <table class="vt">
+          <thead><tr><th>Factor</th><th class="num">Starting salary</th><th class="num">Salary vs peers</th></tr></thead>
+          <tbody><tr><td>Major<code>major</code></td><td class="num">1.8%<span class="vbar" style="--v:1.8"></span></td><td class="num">0.3%<span class="vbar" style="--v:0.3"></span></td></tr><tr><td>First job family<code>first_family</code></td><td class="num">19.7%<span class="vbar" style="--v:19.7"></span></td><td class="num">20.2%<span class="vbar" style="--v:20.2"></span></td></tr><tr><td>First employer industry<code>first_industry</code></td><td class="num">16.1%<span class="vbar" style="--v:16.1"></span></td><td class="num">9.5%<span class="vbar" style="--v:9.5"></span></td></tr></tbody>
+        </table>
+      </div>
+    </figure>
+  </section>
+
+  <section class="stats" aria-label="Headline numbers">
+    <div class="stat"><span class="n" data-count="2" data-suffix="%">2%</span><span class="k">Salary variance explained by major</span></div>
+    <div class="stat"><span class="n" data-count="20" data-suffix="%">20%</span><span class="k">…by first job family</span></div>
+    <div class="stat"><span class="n" data-count="16" data-suffix="%">16%</span><span class="k">…by first employer industry</span></div>
+    <div class="stat"><span class="n" data-count="9.8" data-dec="1" data-suffix="%">9.8%</span><span class="k">Alumni still seeking work</span></div>
+  </section>
+
+  <section class="block" id="majors">
+    <div class="sec-head">
+      <span class="note">Majors</span>
+      <h2>Majors and their effect on success</h2>
+    </div>
+    <div class="stack">
+      <div class="grid2">
+        <div class="col">
+          <figure class="cell"><div class="cell-in"><span class="prompt">In [2]:</span><code>a.plot_salary_by_major_degree(majors[<span class="s">"alumcareerinfo"</span>])</code></div><div class="chart" data-chart="salary_by_major_degree"></div></figure>
+          <div class="prose"><p>Most alumni in the dataset only hold a bachelor's degree (2,032 vs 115 with a master's), so the master's comparisons are built on small samples. The typical salary gap between Computer Science and Information Systems is small: CS alumni earn a median of about 3% more, and the two distributions overlap almost entirely.</p></div>
+        </div>
+        <div class="col">
+          <figure class="cell"><div class="cell-in"><span class="prompt">In [3]:</span><code>a.plot_salary_trend(majors[<span class="s">"trend"</span>])</code></div><div class="chart" data-chart="salary_trend"></div></figure>
+          <div class="prose"><p>IS majors close the initial gap by around the <strong>5-year mark</strong>. Fewer alumni remain beyond year 8, so the gap at the end of the chart is a less certain result.</p></div>
+        </div>
+      </div>
+      <p class="callout"><span><strong>Correlation between major (IS = 1) and starting salary: −0.135.</strong> Squared, that is 0.018: only about <strong>2%</strong> of the variation in starting salary is explained by major.</span></p>
+      <details class="more"><summary>Salary summary by major and degree</summary><div class="inner"><div class="table-wrap"><table><thead><tr><th>Major</th><th>Degree</th><th class=num>Alumni</th><th class=num>Avg jobs</th><th class=num>Avg salary</th><th class=num>Max salary</th></tr></thead><tbody><tr><td>Computer Science</td><td>Bachelor of Science</td><td class=num>1,252</td><td class=num>2.9</td><td class=num>$87,581</td><td class=num>$205,500</td></tr><tr><td>Computer Science</td><td>Master of Science</td><td class=num>69</td><td class=num>2.9</td><td class=num>$90,548</td><td class=num>$157,000</td></tr><tr><td>Information Systems</td><td>Bachelor of Science</td><td class=num>780</td><td class=num>2.7</td><td class=num>$85,850</td><td class=num>$220,500</td></tr><tr><td>Information Systems</td><td>Master of Science</td><td class=num>46</td><td class=num>2.5</td><td class=num>$82,233</td><td class=num>$165,500</td></tr></tbody></table></div></div></details>
+    </div>
+  </section>
+
+  <section class="block" id="internships">
+    <div class="sec-head">
+      <span class="note">Internships</span>
+      <h2>Internships and their effect on success</h2>
+    </div>
+    <div class="stack">
+      <div class="grid2">
+        <div class="col">
+          <figure class="cell"><div class="cell-in"><span class="prompt">In [4]:</span><code>a.plot_salary_by_internships(intern[<span class="s">"df_intern"</span>])</code></div><div class="chart" data-chart="salary_by_internships"></div></figure>
+          <div class="prose"><p>There is a large difference in starting salary between alumni with 0 and 3 internships, but the 2- and 3-internship distributions overlap heavily. <strong>Salary gains level off after 2 internships.</strong></p></div>
+        </div>
+        <div class="col">
+          <figure class="cell"><div class="cell-in"><span class="prompt">In [5]:</span><code>a.plot_time_to_hire(intern[<span class="s">"df_intern"</span>])</code></div><div class="chart" data-chart="time_to_hire"></div></figure>
+          <div class="prose"><p>Most employed alumni with 2 or 3 internships were hired within a month of graduation, while those with 0 or 1 took much longer. A 3rd internship adds little over a 2nd for both salary and hire time.</p></div>
+        </div>
+      </div>
+      <div class="col">
+        <figure class="cell"><div class="cell-in"><span class="prompt">In [6]:</span><code>a.plot_return_offers(intern[<span class="s">"offer_table"</span>])</code></div><div class="chart" data-chart="return_offers"></div></figure>
+        <div class="prose"><p>At every internship count, alumni whose first job was a <strong>return offer</strong> earned a higher median starting salary: +$5,250 with 1 internship and +$6,750 with 2 or 3. Return offers also become much more common with more internships (25% with 1, 47% with 2, 66% with 3), so part of the value of more internships is a better chance of converting one into a higher-paying offer.</p></div>
+      </div>
+      <div class="mores">
+        <details class="more"><summary>Outcomes by internship count</summary><div class="inner"><div class="table-wrap"><table><thead><tr><th class=num>Internships</th><th class=num>Alumni</th><th class=num>Median first-job salary</th><th class=num>Median months to hire</th><th class=num>Employed full-time</th><th class=num>Return offer</th></tr></thead><tbody><tr><td class=num>0.0</td><td class=num>773</td><td class=num>$67,750</td><td class=num>4.2</td><td class=num>58%</td><td class=num>0%</td></tr><tr><td class=num>1.0</td><td class=num>1,368</td><td class=num>$78,750</td><td class=num>0.9</td><td class=num>62%</td><td class=num>17%</td></tr><tr><td class=num>2.0</td><td class=num>837</td><td class=num>$83,750</td><td class=num>0.3</td><td class=num>68%</td><td class=num>34%</td></tr><tr><td class=num>3.0</td><td class=num>212</td><td class=num>$87,500</td><td class=num>0.3</td><td class=num>65%</td><td class=num>47%</td></tr><tr><td class=num>4.0</td><td class=num>10</td><td class=num>$70,500</td><td class=num>0.2</td><td class=num>60%</td><td class=num>40%</td></tr></tbody></table></div></div></details>
+        <details class="more"><summary>Return offer premium</summary><div class="inner"><div class="table-wrap"><table><thead><tr><th class=num>Internships</th><th class=num>Median, no offer</th><th class=num>Median, return offer</th><th class=num>Premium</th><th class=num>Alumni, no offer</th><th class=num>Alumni, offer</th></tr></thead><tbody><tr><td class=num>1.0</td><td class=num>$77,500</td><td class=num>$82,750</td><td class=num>+$5,250</td><td class=num>682</td><td class=num>231</td></tr><tr><td class=num>2.0</td><td class=num>$81,000</td><td class=num>$87,750</td><td class=num>+$6,750</td><td class=num>319</td><td class=num>282</td></tr><tr><td class=num>3.0</td><td class=num>$83,500</td><td class=num>$90,250</td><td class=num>+$6,750</td><td class=num>51</td><td class=num>99</td></tr></tbody></table></div></div></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="first-job">
+    <div class="sec-head">
+      <span class="note">First job</span>
+      <h2>First job family and industry</h2>
+      <p>No alumni switched job families or industries, so the first job sets the track. Both factors explain far more salary variation than major does (see the variance table at the top of the page).</p>
+    </div>
+    <div class="stack">
+      <div class="col">
+        <figure class="cell"><div class="cell-in"><span class="prompt">In [7]:</span><code>a.plot_first_job(first_job[<span class="s">"career"</span>], first_job[<span class="s">"family_summary"</span>], <span class="s">"first_family"</span>, <span class="s">"Outcomes by first job family"</span>)</code></div><div class="chart" data-chart="first_job_family"></div></figure>
+        <div class="prose"><p><strong>Cybersecurity</strong> and <strong>Infrastructure &amp; Cloud</strong> earn much more than peers with the same experience, while <strong>IT Support &amp; Operations</strong> earns much less.</p></div>
+      </div>
+      <div class="col">
+        <figure class="cell"><div class="cell-in"><span class="prompt">In [8]:</span><code>a.plot_first_job(first_job[<span class="s">"career"</span>], first_job[<span class="s">"industry_summary"</span>], <span class="s">"first_industry"</span>, <span class="s">"Outcomes by first employer industry"</span>)</code></div><div class="chart" data-chart="first_job_industry"></div></figure>
+        <div class="prose"><p><strong>Cloud &amp; Infrastructure</strong> and <strong>Telecommunications</strong> earn much more than <strong>Federal Government</strong> compared to peers. Cloud &amp; Infrastructure comes out ahead in both views.</p></div>
+      </div>
+      <details class="more"><summary>Summary tables</summary><div class="inner"><div class="table-wrap"><table><thead><tr><th>First job family</th><th class=num>Alumni</th><th class=num>Median first salary</th><th class=num>Now vs peers</th></tr></thead><tbody><tr><td>Cybersecurity</td><td class=num>342</td><td class=num>$91,250</td><td class=num>+$11,587</td></tr><tr><td>Infrastructure & Cloud</td><td class=num>234</td><td class=num>$84,750</td><td class=num>+$6,029</td></tr><tr><td>Machine Learning & AI</td><td class=num>177</td><td class=num>$83,500</td><td class=num>+$1,780</td></tr><tr><td>IT Business & Product</td><td class=num>274</td><td class=num>$75,750</td><td class=num>+$443</td></tr><tr><td>Software Engineering</td><td class=num>481</td><td class=num>$75,250</td><td class=num>−$5,118</td></tr><tr><td>Health IT</td><td class=num>109</td><td class=num>$75,000</td><td class=num>−$4,169</td></tr><tr><td>Data & Analytics</td><td class=num>425</td><td class=num>$72,250</td><td class=num>−$9,000</td></tr><tr><td>IT Support & Operations</td><td class=num>105</td><td class=num>$63,000</td><td class=num>−$22,958</td></tr></tbody></table></div><div class="table-wrap"><table><thead><tr><th>First employer industry</th><th class=num>Alumni</th><th class=num>Median first salary</th><th class=num>Now vs peers</th></tr></thead><tbody><tr><td>Cloud & Infrastructure</td><td class=num>122</td><td class=num>$90,500</td><td class=num>+$9,026</td></tr><tr><td>Cybersecurity Services</td><td class=num>65</td><td class=num>$85,250</td><td class=num>+$544</td></tr><tr><td>Software Products</td><td class=num>219</td><td class=num>$85,250</td><td class=num>+$2,756</td></tr><tr><td>Financial Services</td><td class=num>103</td><td class=num>$84,500</td><td class=num>+$4,957</td></tr><tr><td>E-Commerce & Retail Tech</td><td class=num>125</td><td class=num>$81,250</td><td class=num>+$638</td></tr><tr><td>Consulting & Professional Services</td><td class=num>120</td><td class=num>$80,875</td><td class=num>+$2,883</td></tr><tr><td>Telecommunications</td><td class=num>53</td><td class=num>$80,500</td><td class=num>+$8,689</td></tr><tr><td>Defense & Aerospace</td><td class=num>233</td><td class=num>$79,500</td><td class=num>+$624</td></tr><tr><td>Federal Contracting</td><td class=num>482</td><td class=num>$78,000</td><td class=num>−$3,184</td></tr><tr><td>Insurance</td><td class=num>59</td><td class=num>$76,500</td><td class=num>−$2,906</td></tr><tr><td>Healthcare & Life Sciences</td><td class=num>157</td><td class=num>$71,750</td><td class=num>−$612</td></tr><tr><td>Federal Government</td><td class=num>264</td><td class=num>$68,250</td><td class=num>−$12,662</td></tr></tbody></table></div></div></details>
+    </div>
+  </section>
+
+  <section class="block" id="unemployment">
+    <div class="sec-head">
+      <span class="note">Unemployment</span>
+      <h2>Unemployment rates</h2>
+    </div>
+    <div class="grid21">
+      <figure class="cell"><div class="cell-in"><span class="prompt">In [9]:</span><code>a.plot_unemployment(unemp[<span class="s">"unemp"</span>], unemp[<span class="s">"overall_rate"</span>], by_major)</code></div><div class="chart" data-chart="unemployment"></div></figure>
+      <div class="prose">
+        <p>Unlike the other sections, this includes alumni still seeking work. Overall, <strong>9.8%</strong> of alumni in the labor force were still seeking work after graduation, and major makes almost no difference (CS 9.5% vs IS 10.2%).</p>
+        <p><strong>Internships make a much bigger difference:</strong> the rate drops steadily from 12.6% with 0, 10.6% with 1, 7.2% with 2, 4.9% with 3 internships.</p>
+        <p>Salary and hiring speed leveled off after 2 internships, but unemployment <strong>keeps dropping with a 3rd</strong>, although that group is smaller (n=144).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="activities">
+    <div class="sec-head">
+      <span class="note">Activities</span>
+      <h2>Student activities</h2>
+    </div>
+    <div class="stack">
+      <div class="grid2">
+        <div class="col">
+          <figure class="cell"><div class="cell-in"><span class="prompt">In [10]:</span><code>a.plot_experience_share(activities[<span class="s">"pct_curr"</span>])</code></div><div class="chart" data-chart="experience_share"></div></figure>
+          <div class="prose"><p><strong>Student organizations</strong> are by far the most common experience (66%), followed by internships (44%) and campus jobs (42%). Since internships are tied to higher salaries, faster hiring, and lower unemployment, <strong>over half of current students not having one yet</strong> is a clear opportunity, though some of this is expected since about half are freshmen or sophomores.</p></div>
+        </div>
+        <div class="col">
+          <figure class="cell"><div class="cell-in"><span class="prompt">In [11]:</span><code>a.plot_top_orgs(activities[<span class="s">"top10"</span>], activities[<span class="s">"baseline"</span>])</code></div><div class="chart" data-chart="top_orgs"></div></figure>
+          <div class="prose"><p><strong>3 of the top 4 are certification providers</strong>, and most of the rest are internship employers in industries that also paid well as a first job, like Cloud &amp; Infrastructure, Telecommunications, and Cybersecurity Services. This shows correlation, not causation: students who pursue these may already be heading toward higher-paying fields.</p></div>
+        </div>
+      </div>
+      <details class="more"><summary>Experience types</summary><div class="inner"><p>Internships, co-ops, and hackathons are the most time-intensive (28–40 hours/week), while student organizations, tutoring, and peer mentoring take under 8. Internships and co-ops are mostly paid; student organizations, hackathons, and competitive teams are unpaid. Cells marked n/a mean hours and pay don't apply (certifications).</p><div class="table-wrap"><table><thead><tr><th>Experience type</th><th class=num>Records</th><th class=num>People</th><th class=num>Organizations</th><th class=num>Avg terms</th><th class=num>Avg hours/week</th><th class=num>Paid</th></tr></thead><tbody><tr><td>Student Organization</td><td class=num>4,176</td><td class=num>3,208</td><td class=num>1</td><td class=num>3.1</td><td class=num>4.0</td><td class=num>0%</td></tr><tr><td>Internship</td><td class=num>4,106</td><td class=num>3,012</td><td class=num>58</td><td class=num>1.0</td><td class=num>28.4</td><td class=num>87%</td></tr><tr><td>Hackathon</td><td class=num>3,259</td><td class=num>1,489</td><td class=num>8</td><td class=num>1.0</td><td class=num>36.3</td><td class=num>0%</td></tr><tr><td>Certification</td><td class=num>2,845</td><td class=num>1,712</td><td class=num>17</td><td class=num>1.0</td><td class=num>n/a</td><td class=num>n/a</td></tr><tr><td>Campus Job</td><td class=num>2,080</td><td class=num>2,080</td><td class=num>7</td><td class=num>3.3</td><td class=num>13.0</td><td class=num>100%</td></tr><tr><td>Undergraduate Research</td><td class=num>954</td><td class=num>954</td><td class=num>7</td><td class=num>2.4</td><td class=num>10.2</td><td class=num>64%</td></tr><tr><td>Tutoring</td><td class=num>715</td><td class=num>715</td><td class=num>4</td><td class=num>2.5</td><td class=num>7.1</td><td class=num>100%</td></tr><tr><td>Competitive Team</td><td class=num>700</td><td class=num>700</td><td class=num>1</td><td class=num>2.0</td><td class=num>8.7</td><td class=num>0%</td></tr><tr><td>Co-op</td><td class=num>678</td><td class=num>652</td><td class=num>58</td><td class=num>2.0</td><td class=num>40.0</td><td class=num>89%</td></tr><tr><td>Peer Mentor</td><td class=num>546</td><td class=num>546</td><td class=num>4</td><td class=num>2.0</td><td class=num>5.3</td><td class=num>55%</td></tr></tbody></table></div></div></details>
+    </div>
+  </section>
+
+  <section class="block" id="method">
+    <div class="sec-head">
+      <span class="note">Method</span>
+      <h2>How we work</h2>
+      <p>Every finding goes through the same five steps. The analysis code lives in analysis.py and the dashboard in app.py.</p>
+    </div>
+    <ol class="steps">
+      <li class="step"><span class="num">01</span><h3>Load</h3><p>Six CSV files from the hackUMBC 2026 dataset, joined on each person's campus ID.</p><span class="tool">pandas · read_csv</span></li>
+      <li class="step"><span class="num">02</span><h3>Clean</h3><p>Turn "Not Applicable" into missing values, convert salaries to numbers, count repeat activities once per person.</p><span class="tool">pandas</span></li>
+      <li class="step"><span class="num">03</span><h3>Explore</h3><p>Box plots, hiring curves, and salary trends, one notebook cell per question.</p><span class="tool">Jupyter · matplotlib</span></li>
+      <li class="step"><span class="num">04</span><h3>Measure</h3><p>Variance explained by each factor, and salary compared with peers who have the same years of experience.</p><span class="tool">η² (ANOVA) · numpy</span></li>
+      <li class="step"><span class="num">05</span><h3>Share</h3><p>Package every chart as a function and serve them in an interactive dashboard.</p><span class="tool">Streamlit</span></li>
+    </ol>
+  </section>
+
+  <section class="block" id="data">
+    <div class="sec-head">
+      <span class="note">Data</span>
+      <h2>The datasets</h2>
+      <p>Six CSV files from the hackUMBC 2026 dataset, joined on campus ID.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Dataset</th><th>One row is</th><th class="num">Rows</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td>Alumni<code>alumni.csv</code></td><td class="src">A graduate, highest degree only</td><td class="num">3,200</td><td>Majors, internships, unemployment</td></tr>
+          <tr><td>Employment history<code>employment_history.csv</code></td><td class="src">One job spell</td><td class="num">6,028</td><td>Career salary trend, first job</td></tr>
+          <tr><td>Student experience<code>student_experience.csv</code></td><td class="src">One activity</td><td class="num">20,059</td><td>Activities, top organizations</td></tr>
+          <tr><td>Current students<code>students_current.csv</code></td><td class="src">A student enrolled in Fall 2026</td><td class="num">1,800</td><td>Activity participation</td></tr>
+          <tr><td>Transcripts<code>transcripts.csv</code></td><td class="src">One course attempt</td><td class="num">140,458</td><td class="unused">Not used yet</td></tr>
+          <tr><td>Course catalog<code>course_catalog.csv</code></td><td class="src">One course</td><td class="num">72</td><td class="unused">Not used yet</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total</td><td></td><td class="num">171,617</td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>Success Signals is a student project and not an official UMBC website.</span>
+    <span>Charts rendered by analysis.py · built with pandas, matplotlib, and Streamlit.</span>
+  </footer>
+</main>
+
+<script type="application/json" id="chart-data">{"salary_by_major_degree":{"type":"box","title":"Average salary per alum, by major and degree level","series":["Bachelor of Science","Master of Science"],"groupName":"Major","groups":[{"label":"Computer Science","boxes":[{"s":0,"n":1252,"q1":77453,"med":87073,"q3":96578,"lo":49000,"hi":125167,"fliers":[47000,44250,138000,127000,148250,140333,126500,130188,145625,139000,127000,131333,128500,125500,127125,131167]},{"s":1,"n":69,"q1":78250,"med":90333,"q3":101000,"lo":53220,"hi":131000,"fliers":[]}]},{"label":"Information Systems","boxes":[{"s":0,"n":780,"q1":74708,"med":84594,"q3":96500,"lo":47667,"hi":126500,"fliers":[40125,41900,39250,40750,135750,141000,131000,140833,129500,132000,156833,160000]},{"s":1,"n":46,"q1":74344,"med":84425,"q3":92234,"lo":48000,"hi":113400,"fliers":[39500,119375]}]}]},"salary_trend":{"type":"line-band","title":"Median alumni salary over their career","x":[0,1,2,3,4,5,6,7,8,9,10],"xName":"Year","xLabel":"Years since first job","series":[{"label":"Computer Science","short":"CS","median":[80500,79500,81250,83500,86486,89000,91000,93250,97250,100500,101000],"p25":[69750,69250,70250,72250,75688,77250,79500,82500,84250,86484,87750],"p75":[91000,90500,91250,93500,98049,101000,103500,107625,112000,114250,115500]},{"label":"Information Systems","short":"IS","median":[75500,75250,76750,81500,84250,88625,91724,95750,100000,102000,107250],"p25":[64250,64000,65250,69500,73625,74812,78264,82500,86500,89375,89500],"p75":[87000,86500,88000,93000,97125,101000,106500,113375,119334,119500,131125]}],"note":"Shaded band = middle 50% of alumni. Years with fewer than 50 alumni hidden."},"salary_by_internships":{"type":"box","title":"First-job salary by number of internships","xLabel":"Internships completed","groupName":"Internships","groups":[{"label":"0","boxes":[{"s":0,"n":477,"q1":58000,"med":67750,"q3":78000,"lo":34000,"hi":107000,"fliers":[121500,115000,111000]}]},{"label":"1","boxes":[{"s":0,"n":913,"q1":68500,"med":78750,"q3":88500,"lo":38750,"hi":118000,"fliers":[34250,34000,34500,37500,122500,126000,126000,133000]}]},{"label":"2","boxes":[{"s":0,"n":601,"q1":72750,"med":83750,"q3":96500,"lo":46750,"hi":132000,"fliers":[142500,144500]}]},{"label":"3","boxes":[{"s":0,"n":150,"q1":75312,"med":87500,"q3":99625,"lo":47750,"hi":130000,"fliers":[138000]}]}]},"time_to_hire":{"type":"step","title":"Share of employed alumni hired by each month","xName":"Month","xLabel":"Months after graduation","series":[{"label":"0 internships","x":[0.0,0.1,0.2,0.4,0.5,0.6,0.7,0.8,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,3.9,4.0,4.1,4.2,4.3,4.4,4.5,4.6,4.7,4.8,4.9,5.0,5.1,5.2,5.3,5.4,5.5,5.6,5.7,5.8,5.9,6.0,6.1,6.2,6.3,6.4,6.5,6.6,6.7,6.8,6.9,7.0,7.1,7.3,7.4,7.5,7.6,7.7,7.8,8.1,8.3,8.4,8.6,8.7,8.8,9.0,9.4,9.5,10.0,10.3],"y":[0.0168,0.0189,0.021,0.0231,0.0252,0.0273,0.0294,0.0314,0.0377,0.044,0.0524,0.065,0.0776,0.0797,0.0839,0.0922,0.1006,0.1048,0.1195,0.1384,0.1488,0.1698,0.1803,0.195,0.2075,0.218,0.2432,0.2579,0.2662,0.283,0.3124,0.3312,0.3459,0.3669,0.3983,0.4256,0.4444,0.4675,0.4843,0.4969,0.5199,0.543,0.5702,0.5849,0.6122,0.6352,0.6562,0.6688,0.6813,0.696,0.7107,0.7358,0.7547,0.7799,0.7966,0.8134,0.8239,0.8323,0.8386,0.8449,0.8595,0.8679,0.8742,0.8763,0.8889,0.8994,0.9078,0.914,0.9245,0.935,0.9413,0.9476,0.9497,0.9581,0.9644,0.9727,0.9748,0.979,0.9811,0.9832,0.9874,0.9895,0.9916,0.9937,0.9958,0.9979,1.0]},{"label":"1 internship","x":[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,3.9,4.0,4.1,4.2,4.3,4.4,4.5,4.6,4.7,4.8,4.9,5.0,5.1,5.2,5.3,5.4,5.5,5.6,5.7,5.8,5.9,6.0,6.1,6.3,6.6,7.0,7.1,7.2],"y":[0.184,0.241,0.2924,0.345,0.3855,0.437,0.4589,0.4743,0.4984,0.5093,0.5257,0.54,0.5531,0.5696,0.5915,0.6002,0.6199,0.6418,0.6572,0.6648,0.6769,0.6922,0.7065,0.7174,0.7306,0.7437,0.7525,0.7722,0.7864,0.7974,0.8105,0.8269,0.8379,0.851,0.8576,0.8675,0.8729,0.8806,0.8927,0.897,0.9025,0.9146,0.9222,0.9277,0.9332,0.9376,0.9419,0.9485,0.9518,0.9562,0.9595,0.9617,0.966,0.9737,0.9748,0.9781,0.9825,0.9858,0.989,0.9912,0.9923,0.9945,0.9956,0.9967,0.9978,0.9989,1.0]},{"label":"2 internships","x":[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,3.9,4.1,4.2,4.3,4.4,4.5,4.6,4.8,5.4],"y":[0.2862,0.3644,0.4676,0.5574,0.6323,0.7055,0.7488,0.7554,0.7637,0.777,0.782,0.7953,0.807,0.8153,0.827,0.8419,0.8519,0.8652,0.8702,0.8819,0.8885,0.8902,0.9002,0.9035,0.9101,0.9118,0.9201,0.9301,0.9334,0.9351,0.9368,0.9451,0.9484,0.9567,0.9584,0.9634,0.97,0.9734,0.975,0.9784,0.98,0.9817,0.9867,0.9884,0.9917,0.9933,0.9967,1.0]},{"label":"3 internships","x":[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.6,1.8,1.9,2.1,2.3,2.5,2.9,3.0,3.3,3.5,3.6,4.0,4.4,5.1,5.8],"y":[0.2533,0.3867,0.46,0.5733,0.6733,0.78,0.8133,0.8333,0.84,0.8533,0.8667,0.88,0.8933,0.9,0.9067,0.9133,0.9267,0.9333,0.94,0.9467,0.96,0.9667,0.9733,0.98,0.9867,0.9933,1.0]}]},"return_offers":{"type":"pie","title":"Median first-job salary: return offer vs. no return offer","series":["No return offer","Return offer"],"pies":[{"title":"1 internship  (n=913)","slices":[{"s":0,"count":682,"median":77500.0},{"s":1,"count":231,"median":82750.0}]},{"title":"2 internships  (n=601)","slices":[{"s":0,"count":319,"median":81000.0},{"s":1,"count":282,"median":87750.0}]},{"title":"3 internships  (n=150)","slices":[{"s":0,"count":51,"median":83500.0},{"s":1,"count":99,"median":90250.0}]}],"minWidth":560,"note":"Slice size (and %) = share of alumni in each group. Dollar label = that group's median first-job salary."},"first_job_family":{"type":"hbox-diverge","title":"Outcomes by first job family","rowName":"First job family","minWidth":720,"leftTitle":"First-job salary","rightTitle":"Now vs. peers (median)","rows":[{"label":"Cybersecurity","n":342,"diff":11587,"box":{"n":342,"q1":79250,"med":91250,"q3":101375,"lo":53750,"hi":132000,"fliers":[138000,144500,142500]}},{"label":"Infrastructure & Cloud","n":234,"diff":6029,"box":{"n":234,"q1":75312,"med":84750,"q3":94938,"lo":54000,"hi":122500,"fliers":[37000,133000]}},{"label":"Machine Learning & AI","n":177,"diff":1780,"box":{"n":177,"q1":75750,"med":83500,"q3":93000,"lo":51750,"hi":115000,"fliers":[49250,122500,128000,120000]}},{"label":"IT Business & Product","n":274,"diff":443,"box":{"n":274,"q1":66312,"med":75750,"q3":85938,"lo":41000,"hi":113500,"fliers":[34000,121000]}},{"label":"Software Engineering","n":481,"diff":-5118,"box":{"n":481,"q1":66000,"med":75250,"q3":86250,"lo":36500,"hi":116500,"fliers":[117000,122500]}},{"label":"Health IT","n":109,"diff":-4169,"box":{"n":109,"q1":60500,"med":75000,"q3":86500,"lo":39250,"hi":110500,"fliers":[]}},{"label":"Data & Analytics","n":425,"diff":-9000,"box":{"n":425,"q1":63500,"med":72250,"q3":82000,"lo":36250,"hi":108500,"fliers":[111500,114500,118500,110000,113000]}},{"label":"IT Support & Operations","n":105,"diff":-22958,"box":{"n":105,"q1":53250,"med":63000,"q3":72000,"lo":34000,"hi":93750,"fliers":[106500]}}],"note":"Groups with fewer than 50 alumni hidden. Right panel: 0 = typical alum with the same years of experience."},"first_job_industry":{"type":"hbox-diverge","title":"Outcomes by first employer industry","rowName":"First employer industry","minWidth":720,"leftTitle":"First-job salary","rightTitle":"Now vs. peers (median)","rows":[{"label":"Cloud & Infrastructure","n":122,"diff":9026,"box":{"n":122,"q1":77750,"med":90500,"q3":103250,"lo":46500,"hi":138000,"fliers":[]}},{"label":"Cybersecurity Services","n":65,"diff":544,"box":{"n":65,"q1":73000,"med":85250,"q3":95000,"lo":54000,"hi":126500,"fliers":[]}},{"label":"Software Products","n":219,"diff":2756,"box":{"n":219,"q1":74500,"med":85250,"q3":97375,"lo":42250,"hi":130000,"fliers":[133000]}},{"label":"Financial Services","n":103,"diff":4957,"box":{"n":103,"q1":75000,"med":84500,"q3":94000,"lo":56500,"hi":118500,"fliers":[142500]}},{"label":"E-Commerce & Retail Tech","n":125,"diff":638,"box":{"n":125,"q1":72000,"med":81250,"q3":91000,"lo":50000,"hi":118500,"fliers":[126000,122500]}},{"label":"Consulting & Professional Services","n":120,"diff":2883,"box":{"n":120,"q1":68188,"med":80875,"q3":90375,"lo":46750,"hi":123500,"fliers":[]}},{"label":"Telecommunications","n":53,"diff":8689,"box":{"n":53,"q1":71000,"med":80500,"q3":96250,"lo":43750,"hi":127500,"fliers":[]}},{"label":"Defense & Aerospace","n":233,"diff":624,"box":{"n":233,"q1":72000,"med":79500,"q3":92500,"lo":42750,"hi":121000,"fliers":[127000,125000,144500,125000,125500]}},{"label":"Federal Contracting","n":482,"diff":-3184,"box":{"n":482,"q1":67812,"med":78000,"q3":88000,"lo":40000,"hi":118000,"fliers":[36500,37000,119000,128500]}},{"label":"Insurance","n":59,"diff":-2906,"box":{"n":59,"q1":64375,"med":76500,"q3":85250,"lo":39000,"hi":111000,"fliers":[]}},{"label":"Healthcare & Life Sciences","n":157,"diff":-612,"box":{"n":157,"q1":63750,"med":71750,"q3":83750,"lo":44250,"hi":113500,"fliers":[]}},{"label":"Federal Government","n":264,"diff":-12662,"box":{"n":264,"q1":56688,"med":68250,"q3":78812,"lo":34500,"hi":103500,"fliers":[120000]}}],"note":"Groups with fewer than 50 alumni hidden. Right panel: 0 = typical alum with the same years of experience."},"unemployment":{"type":"bar","title":"Share of alumni still seeking work after graduation","xName":"Internships:","xLabel":"Internships completed","valueFmt":"pct1","bars":[{"label":"0","value":0.1262,"n":515},{"label":"1","value":0.1058,"n":964},{"label":"2","value":0.0725,"n":607},{"label":"3","value":0.0486,"n":144}],"ref":{"value":0.0979,"label":"All alumni"},"note":"Among alumni in the labor force (employed, military, or still seeking); excludes grad school, no response, and 2026 grads. By major: CS 9.5%, IS 10.2%."},"experience_share":{"type":"hbar","title":"Share of current students with each experience type","rowName":"Experience type","xLabel":"% of current students","valueFmt":"pct0","rows":[{"label":"Student Organization","value":0.6556},{"label":"Internship","value":0.4389},{"label":"Campus Job","value":0.42},{"label":"Certification","value":0.3583},{"label":"Hackathon","value":0.3078},{"label":"Undergraduate Research","value":0.1867},{"label":"Competitive Team","value":0.1506},{"label":"Tutoring","value":0.1467},{"label":"Peer Mentor","value":0.1067},{"label":"Co-op","value":0.0839}]},"top_orgs":{"type":"hbar","title":"Top 10 organizations by alumni first-job salary","rowName":"Organization","valueFmt":"signedUsdK1","xFmt":"usdK","xLabel":"Median first-job salary above the all-alumni median ($78,250)","rows":[{"label":"Redoubt Training Institute","n":43,"value":14000},{"label":"Sentinel Learning","n":50,"value":12375},{"label":"Bastion Certification Board","n":132,"value":11500},{"label":"Beacon Telecom Services","n":35,"value":11500},{"label":"Anvil Compute","n":65,"value":11250},{"label":"Network Security Laboratory","n":68,"value":9875},{"label":"Marketside Digital","n":64,"value":9000},{"label":"Sterling Ridge Consulting","n":49,"value":9000},{"label":"Sentinel Peak Security","n":32,"value":8750},{"label":"Northwind Platform Co.","n":60,"value":8125}]}}</script>
+<script>/*
+ * Success Signals chart renderer.
+ *
+ * Hand-drawn SVG charts driven by the JSON specs build.py exports from
+ * analysis.py. No charting library: each chart type is one entry in TYPES with
+ * a draw(ctx) that returns the drawing's height, and a table(spec) that returns
+ * the chart's data as a table (every chart has a table view).
+ *
+ * Motion is tied to scroll position: as a chart rises up the screen its bars
+ * grow, lines draw, pies sweep, and labels fade in after their marks
+ * (staggered by --i); scrolling back up rewinds it, and stopping mid-scroll
+ * holds it part-way. Reduced motion shows the final state. Charts are drawn at
+ * the container's real pixel width so text stays readable, and redraw at their
+ * current progress on resize.
+ */
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const DATA = JSON.parse(document.getElementById('chart-data').textContent);
+  const color = i => `var(--s${(i % 4) + 1})`;
+
+  const FMT = {
+    usd: v => '$' + Math.round(v).toLocaleString('en-US'),
+    usdK: v => '$' + Math.round(v / 1000) + 'K',
+    usdK1: v => '$' + (v / 1000).toFixed(1) + 'K',
+    signedUsdK1: v => (v < 0 ? '−' : '+') + '$' + (Math.abs(v) / 1000).toFixed(1) + 'K',
+    pct0: v => Math.round(v * 100) + '%',
+    pct1: v => (v * 100).toFixed(1) + '%',
+    int: v => Math.round(v).toLocaleString('en-US'),
+    num: v => String(v),
+  };
+
+  /* ── helpers ─────────────────────────────────────────────────────────── */
+
+  const mk = (tag, attrs, parent) => {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  };
+  const txt = (parent, x, y, s, cls = '', anchor = 'start', i) => {
+    const t = mk('text', { x, y, class: cls, 'text-anchor': anchor, style: i != null ? `--i:${i}` : null }, parent);
+    t.textContent = s;
+    return t;
+  };
+  const html = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  const measure = document.createElement('canvas').getContext('2d');
+  const FONT = { sans: '12px "DM Sans", sans-serif', sansB: '500 13px "DM Sans", sans-serif', mono: '11px "JetBrains Mono", monospace' };
+  const textW = (s, font = FONT.sans) => { measure.font = font; return measure.measureText(s).width; };
+
+  const lin = (d0, d1, r0, r1) => v => r0 + ((v - d0) / (d1 - d0 || 1)) * (r1 - r0);
+
+  /** Rounded tick values covering [min, max]. */
+  function niceTicks(min, max, count = 5) {
+    const span = max - min || Math.abs(max) || 1;
+    const raw = span / count, mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag;
+    const step = (norm >= 5 ? 10 : norm >= 2 ? 5 : norm >= 1 ? 2 : 1) * mag;
+    const out = [];
+    for (let v = Math.floor(min / step) * step; v <= max + step * 0.999; v += step) out.push(+v.toFixed(10));
+    return out;
+  }
+
+  /** A bar with its data end rounded and its baseline end square. dir: right | left | up. */
+  function bar(x, y, w, h, dir = 'right', r = 4) {
+    if (w <= 0.5 || h <= 0.5) return '';
+    if (dir === 'up') {
+      const rr = Math.min(r, w / 2, h);
+      return `M${x},${y + h} V${y + rr} a${rr},${rr} 0 0 1 ${rr},${-rr} H${x + w - rr} a${rr},${rr} 0 0 1 ${rr},${rr} V${y + h} Z`;
+    }
+    const rr = Math.min(r, w, h / 2);
+    if (dir === 'left') return `M${x + w},${y} H${x + rr} a${rr},${rr} 0 0 0 ${-rr},${rr} V${y + h - rr} a${rr},${rr} 0 0 0 ${rr},${rr} H${x + w} Z`;
+    return `M${x},${y} H${x + w - rr} a${rr},${rr} 0 0 1 ${rr},${rr} V${y + h - rr} a${rr},${rr} 0 0 1 ${-rr},${rr} H${x} Z`;
+  }
+
+  /** Horizontal gridlines with left-hand tick labels. */
+  function yGrid(g, ticks, y, x0, x1, fmt) {
+    ticks.forEach((t, k) => {
+      mk('line', { x1: x0, x2: x1, y1: y(t), y2: y(t), class: k === 0 ? 'base' : 'grid' }, g);
+      txt(g, x0 - 8, y(t) + 4, fmt(t), '', 'end');
+    });
+  }
+
+  /** Crosshair + tooltip layer over a continuous x axis. */
+  function crosshair(ctx, x0, x1, y0, y1, onMove) {
+    const { svg, tip } = ctx;
+    const line = mk('line', { y1: y0, y2: y1, class: 'xhair', visibility: 'hidden' }, svg);
+    const dots = mk('g', { visibility: 'hidden' }, svg);
+    const hit = mk('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: 'transparent' }, svg);
+    hit.addEventListener('pointermove', e => {
+      const r = svg.getBoundingClientRect();
+      const px = Math.max(x0, Math.min(x1, e.clientX - r.left));
+      const res = onMove(px);
+      if (!res) return;
+      line.setAttribute('x1', res.x); line.setAttribute('x2', res.x); line.setAttribute('visibility', 'visible');
+      dots.replaceChildren();
+      res.points.forEach(p => mk('circle', { cx: res.x, cy: p.y, r: 4.5, class: 'xdot', style: `fill:${p.color}` }, dots));
+      dots.setAttribute('visibility', 'visible');
+      tip.show(res.html, res.x, Math.min(...res.points.map(p => p.y)));
+    });
+    hit.addEventListener('pointerleave', () => {
+      line.setAttribute('visibility', 'hidden'); dots.setAttribute('visibility', 'hidden'); tip.hide();
+    });
+  }
+
+  /** Transparent hover target that shows a tooltip anchored at (ax, ay). */
+  function hover(ctx, attrs, htmlText, ax, ay) {
+    const r = mk('rect', { ...attrs, fill: 'transparent' }, ctx.svg);
+    r.addEventListener('pointerenter', () => ctx.tip.show(htmlText, ax, ay));
+    r.addEventListener('pointerleave', () => ctx.tip.hide());
+    return r;
+  }
+
+  const table = (head, rows) =>
+    `<table><thead><tr>${head.map((h, i) => `<th${i ? ' class="num"' : ''}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
+      rows.map(r => `<tr>${r.map((c, i) => `<td${i ? ' class="num"' : ''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+
+  /* ── box: vertical box plots, optionally grouped by series ───────────── */
+
+  function drawBoxes(ctx, spec) {
+    const { W, g } = ctx, fmt = FMT[spec.yFmt || 'usdK'];
+    const boxes = spec.groups.flatMap(gr => gr.boxes);
+    const all = boxes.flatMap(b => [b.lo, b.hi, ...b.fliers]);
+    const ticks = niceTicks(Math.min(...all), Math.max(...all), 5);
+    const padL = Math.max(...ticks.map(t => textW(fmt(t), FONT.mono))) + 16;
+    const top = 14, plotH = 300, H = top + plotH + (spec.xLabel ? 62 : 44);
+    const x0 = padL, x1 = W - 8, yb = top + plotH;
+    const y = lin(ticks[0], ticks[ticks.length - 1], yb, top);
+    yGrid(g, ticks, y, x0, x1, fmt);
+
+    const gw = (x1 - x0) / spec.groups.length;
+    let i = 0;
+    spec.groups.forEach((gr, gi) => {
+      const k = gr.boxes.length, slot = (gw * 0.8) / k, bw = Math.min(slot * 0.8, 96);
+      gr.boxes.forEach((b, j) => {
+        const cx = x0 + gw * (gi + 0.5) + (j - (k - 1) / 2) * slot, c = color(b.s);
+        const whisk = mk('g', { class: 'fade', style: `--i:${i}`, stroke: c, 'stroke-width': 1.5 }, g);
+        mk('line', { x1: cx, x2: cx, y1: y(b.lo), y2: y(b.q1) }, whisk);
+        mk('line', { x1: cx, x2: cx, y1: y(b.q3), y2: y(b.hi) }, whisk);
+        mk('line', { x1: cx - bw / 4, x2: cx + bw / 4, y1: y(b.lo), y2: y(b.lo) }, whisk);
+        mk('line', { x1: cx - bw / 4, x2: cx + bw / 4, y1: y(b.hi), y2: y(b.hi) }, whisk);
+        const fl = mk('g', { class: 'fade', style: `--i:${i}`, fill: c, 'fill-opacity': 0.4 }, g);
+        b.fliers.forEach(v => mk('circle', { cx, cy: y(v), r: 2.5 }, fl));
+        mk('rect', { x: cx - bw / 2, y: y(b.q3), width: bw, height: Math.max(y(b.q1) - y(b.q3), 1), rx: 3, fill: c, class: 'grow-y mid', style: `--i:${i}` }, g);
+        mk('line', { x1: cx - bw / 2, x2: cx + bw / 2, y1: y(b.med), y2: y(b.med), stroke: '#fff', 'stroke-width': 2, class: 'fade', style: `--i:${i}` }, g);
+        if (spec.medianLabels !== false) txt(g, cx, y(b.med) - 4, FMT.usdK(b.med), 'in fade', 'middle', i);
+        txt(g, cx, yb + 15, `n=${FMT.int(b.n)}`, '', 'middle');
+        const series = spec.series ? `${spec.series[b.s]} · ` : '';
+        hover(ctx, { x: cx - slot / 2, y: y(b.hi) - 4, width: slot, height: y(b.lo) - y(b.hi) + 8 },
+          `<b>${esc(series + gr.label)}</b><br>Median ${FMT.usd(b.med)}<br>Middle 50% ${fmt(b.q1)}–${fmt(b.q3)}<br>n=${FMT.int(b.n)}`, cx, y(b.q3));
+        i++;
+      });
+      txt(g, x0 + gw * (gi + 0.5), yb + 34, gr.label, 'lab-strong', 'middle');
+    });
+    if (spec.xLabel) txt(g, (x0 + x1) / 2, yb + 54, spec.xLabel, 'lab', 'middle');
+    return H;
+  }
+
+  const boxTable = spec => table(
+    [spec.groupName || 'Group', ...(spec.series ? ['Series'] : []), 'n', 'Q1', 'Median', 'Q3'],
+    spec.groups.flatMap(gr => gr.boxes.map(b => [gr.label, ...(spec.series ? [spec.series[b.s]] : []), FMT.int(b.n), FMT.usd(b.q1), FMT.usd(b.med), FMT.usd(b.q3)])));
+
+  /* ── line-band: median lines with a shaded middle-50% band ───────────── */
+
+  function drawLineBand(ctx, spec) {
+    const { W, g } = ctx, fmt = FMT[spec.yFmt || 'usdK'];
+    const vals = spec.series.flatMap(s => [...s.p25, ...s.p75].filter(v => v != null));
+    const ticks = niceTicks(Math.min(...vals), Math.max(...vals), 5);
+    const padL = Math.max(...ticks.map(t => textW(fmt(t), FONT.mono))) + 16;
+    const endText = s => `${W < 560 ? s.short : s.label}  ${fmt(s.median[s.median.length - 1])}`;
+    const padR = Math.max(...spec.series.map(s => textW(endText(s), FONT.sans))) + 22;
+    const top = 12, plotH = 280, H = top + plotH + 48;
+    const x0 = padL, x1 = W - padR, yb = top + plotH;
+    const xs = spec.x, x = lin(xs[0], xs[xs.length - 1], x0, x1), y = lin(ticks[0], ticks[ticks.length - 1], yb, top);
+    yGrid(g, ticks, y, x0, x1, fmt);
+    xs.forEach(v => txt(g, x(v), yb + 16, v, '', 'middle'));
+    if (spec.xLabel) txt(g, (x0 + x1) / 2, yb + 38, spec.xLabel, 'lab', 'middle');
+
+    spec.series.forEach((s, si) => {
+      const pts = xs.map((v, k) => [v, s.median[k], s.p25[k], s.p75[k]]).filter(p => p[1] != null);
+      const band = pts.map(p => `${x(p[0])},${y(p[3])}`).join(' L') + ' L' + pts.slice().reverse().map(p => `${x(p[0])},${y(p[2])}`).join(' L');
+      mk('path', { d: `M${band} Z`, fill: color(si), 'fill-opacity': 0.12, class: 'fade', style: `--i:${si}` }, g);
+    });
+    const ends = [];
+    spec.series.forEach((s, si) => {
+      const pts = xs.map((v, k) => [v, s.median[k]]).filter(p => p[1] != null);
+      mk('path', { d: 'M' + pts.map(p => `${x(p[0])},${y(p[1])}`).join(' L'), pathLength: 1, fill: 'none', stroke: color(si), 'stroke-width': 2, 'stroke-linejoin': 'round', class: 'draw', style: `--i:${si}` }, g);
+      pts.forEach((p, k) => mk('circle', { cx: x(p[0]), cy: y(p[1]), r: 3.5, fill: color(si), stroke: 'var(--surface)', 'stroke-width': 1.5, class: 'fade', style: `--i:${k + si}` }, g));
+      const last = pts[pts.length - 1];
+      ends.push({ s, y: y(last[1]), x: x(last[0]) });
+    });
+    ends.sort((a, b) => a.y - b.y).forEach((e, k, arr) => {   // nudge end labels apart
+      if (k && e.y - arr[k - 1].y < 16) e.y = arr[k - 1].y + 16;
+      txt(g, e.x + 10, e.y + 4, endText(e.s), 'lab fade', 'start', 8);
+    });
+
+    const step = (x1 - x0) / (xs.length - 1);
+    crosshair(ctx, x0, x1, top, yb, px => {
+      const k = Math.round((px - x0) / step), v = xs[k];
+      const points = spec.series.map((s, si) => ({ y: y(s.median[k]), color: color(si), s })).filter(p => p.s.median[k] != null);
+      return { x: x(v), points, html: `<b>${esc(spec.xName || 'x')} ${v}</b><br>` + points.map(p => `${esc(p.s.label)}: <b>${FMT.usd(p.s.median[k])}</b>`).join('<br>') };
+    });
+    return H;
+  }
+
+  const lineBandTable = spec => table(
+    [spec.xName || 'x', ...spec.series.flatMap(s => [`${s.short} median`, `${s.short} middle 50%`])],
+    spec.x.map((v, k) => [v, ...spec.series.flatMap(s => s.median[k] == null ? ['', ''] : [FMT.usd(s.median[k]), `${FMT.usdK(s.p25[k])}–${FMT.usdK(s.p75[k])}`])]));
+
+  /* ── step: cumulative share over a continuous x (e.g. months to hire) ── */
+
+  const cumAt = (s, v) => { let c = 0; for (let k = 0; k < s.x.length && s.x[k] <= v; k++) c = s.y[k]; return c; };
+
+  function drawStep(ctx, spec) {
+    const { W, g } = ctx;
+    const xMax = Math.max(...spec.series.map(s => s.x[s.x.length - 1]));
+    const xt = niceTicks(0, xMax, 6), yt = [0, 0.2, 0.4, 0.6, 0.8, 1];
+    const padL = textW('100%', FONT.mono) + 16, top = 12, plotH = 280, H = top + plotH + 48;
+    const x0 = padL, x1 = W - 12, yb = top + plotH;
+    const x = lin(0, xt[xt.length - 1], x0, x1), y = lin(0, 1, yb, top);
+    yGrid(g, yt, y, x0, x1, FMT.pct0);
+    xt.forEach(v => txt(g, x(v), yb + 16, v, '', 'middle'));
+    if (spec.xLabel) txt(g, (x0 + x1) / 2, yb + 38, spec.xLabel, 'lab', 'middle');
+    spec.series.forEach((s, si) => {
+      let d = `M${x(0)},${y(0)}`;
+      s.x.forEach((v, k) => { d += ` H${x(v)} V${y(s.y[k])}`; });
+      mk('path', { d, pathLength: 1, fill: 'none', stroke: color(si), 'stroke-width': 2, class: 'draw', style: `--i:${si}` }, g);
+    });
+    crosshair(ctx, x0, x1, top, yb, px => {
+      const v = (px - x0) / (x1 - x0) * xt[xt.length - 1];
+      const points = spec.series.map((s, si) => ({ y: y(cumAt(s, v)), color: color(si), s }));
+      return { x: px, points, html: `<b>By month ${v.toFixed(1)}</b><br>` + points.map(p => `${esc(p.s.label)}: <b>${FMT.pct0(cumAt(p.s, v))}</b>`).join('<br>') };
+    });
+    return H;
+  }
+
+  const stepTable = spec => {
+    const xMax = Math.ceil(Math.max(...spec.series.map(s => s.x[s.x.length - 1])));
+    const months = Array.from({ length: xMax }, (_, k) => k + 1);
+    return table([spec.xName || 'x', ...spec.series.map(s => s.label)], months.map(m => [m, ...spec.series.map(s => FMT.pct0(cumAt(s, m)))]));
+  };
+
+  /* ── pie: small multiples; each slice sweeps in clockwise from 12 o'clock ── */
+
+  function drawPies(ctx, spec) {
+    const { W, g } = ctx, n = spec.pies.length, cw = W / n;
+    const R = Math.max(40, Math.min(cw / 2 - 20, 100)), H = 34 + 2 * R + 12;
+    spec.pies.forEach((p, pi) => {
+      const cx = cw * (pi + 0.5), cy = 34 + R, total = p.slices.reduce((a, s) => a + s.count, 0);
+      txt(g, cx, 16, p.title, 'lab-strong', 'middle');
+      const C = Math.PI * R;   // circumference of the r = R/2 stroke circle
+      let start = 0;
+      p.slices.forEach((s, si) => {
+        const frac = s.count / total;
+        mk('circle', { cx, cy, r: R / 2, fill: 'none', stroke: color(s.s), 'stroke-width': R, class: 'sweep',
+          transform: `rotate(${-90 + start * 360} ${cx} ${cy})`, style: `--c:${C};--dash:${frac * C} ${C};--i:${pi}` }, g);
+        const mid = (start + frac / 2) * 2 * Math.PI - Math.PI / 2;
+        const lx = cx + 0.55 * R * Math.cos(mid), ly = cy + 0.55 * R * Math.sin(mid);
+        txt(g, lx, ly - 2, FMT.usdK1(s.median), 'in fade', 'middle', pi + 3);
+        txt(g, lx, ly + 12, `(${FMT.pct0(frac)})`, 'in fade', 'middle', pi + 3);
+        start += frac;
+      });
+      let acc = 0;   // white separators between slices
+      p.slices.forEach(s => {
+        const a = acc * 2 * Math.PI - Math.PI / 2;
+        mk('line', { x1: cx, y1: cy, x2: cx + R * Math.cos(a), y2: cy + R * Math.sin(a), stroke: 'var(--surface)', 'stroke-width': 2, class: 'fade', style: `--i:${pi + 2}` }, g);
+        acc += s.count / total;
+      });
+      const hit = mk('circle', { cx, cy, r: R, fill: 'transparent' }, ctx.svg);
+      hit.addEventListener('pointermove', e => {
+        const r = ctx.svg.getBoundingClientRect();
+        let ang = Math.atan2(e.clientY - r.top - cy, e.clientX - r.left - cx) + Math.PI / 2;
+        if (ang < 0) ang += 2 * Math.PI;
+        let f = ang / (2 * Math.PI), k = 0;
+        while (k < p.slices.length - 1 && f > p.slices[k].count / total) { f -= p.slices[k].count / total; k++; }
+        const s = p.slices[k];
+        ctx.tip.show(`<b>${esc(spec.series[s.s])}</b> · ${esc(p.title)}<br>Median ${FMT.usd(s.median)}<br>${FMT.int(s.count)} alumni (${FMT.pct0(s.count / total)})`, cx, cy - R);
+      });
+      hit.addEventListener('pointerleave', () => ctx.tip.hide());
+    });
+    return H;
+  }
+
+  const pieTable = spec => table(['Group', 'Slice', 'Alumni', 'Share', 'Median'], spec.pies.flatMap(p => {
+    const total = p.slices.reduce((a, s) => a + s.count, 0);
+    return p.slices.map(s => [p.title, spec.series[s.s], FMT.int(s.count), FMT.pct0(s.count / total), FMT.usd(s.median)]);
+  }));
+
+  /* ── bar: vertical bars with value labels, n, and a reference line ───── */
+
+  function drawBars(ctx, spec) {
+    const { W, g } = ctx, fmt = FMT[spec.valueFmt || 'pct1'];
+    const top = 26, plotH = 250, H = top + plotH + (spec.xLabel ? 62 : 44);
+    const x0 = 8, x1 = W - 8, yb = top + plotH, slot = (x1 - x0) / spec.bars.length, bw = Math.min(slot * 0.6, 120);
+    const y = lin(0, Math.max(...spec.bars.map(b => b.value), spec.ref ? spec.ref.value : 0) * 1.08, yb, top);
+    mk('line', { x1: x0, x2: x1, y1: yb, y2: yb, class: 'base' }, g);
+    spec.bars.forEach((b, i) => {
+      const cx = x0 + slot * (i + 0.5);
+      mk('path', { d: bar(cx - bw / 2, y(b.value), bw, yb - y(b.value), 'up'), fill: color(0), class: 'grow-y', style: `--i:${i}` }, g);
+      txt(g, cx, y(b.value) - 7, fmt(b.value), 'val fade', 'middle', i);
+      if (b.n != null) txt(g, cx, yb + 15, `n=${FMT.int(b.n)}`, '', 'middle');
+      txt(g, cx, yb + 34, b.label, 'lab-strong', 'middle');
+      hover(ctx, { x: cx - slot / 2, y: top, width: slot, height: plotH }, `<b>${esc(spec.xName || '')} ${esc(b.label)}</b><br>${fmt(b.value)}${b.n != null ? `<br>n=${FMT.int(b.n)}` : ''}`, cx, y(b.value));
+    });
+    if (spec.ref) {
+      const rg = mk('g', { class: 'fade', style: `--i:${spec.bars.length}` }, g);
+      mk('line', { x1: x0, x2: x1, y1: y(spec.ref.value), y2: y(spec.ref.value), class: 'ref' }, rg);
+      txt(rg, x1, y(spec.ref.value) - 6, `${spec.ref.label} ${fmt(spec.ref.value)}`, '', 'end');
+    }
+    if (spec.xLabel) txt(g, (x0 + x1) / 2, yb + 54, spec.xLabel, 'lab', 'middle');
+    return H;
+  }
+
+  const barTable = spec => table([spec.xName || 'Group', 'Value', 'n'], spec.bars.map(b => [b.label, FMT[spec.valueFmt || 'pct1'](b.value), b.n == null ? '' : FMT.int(b.n)]));
+
+  /* ── hbar: ranked horizontal bars ─────────────────────────────────────── */
+
+  function drawHBars(ctx, spec) {
+    const { W, g } = ctx, fmt = FMT[spec.valueFmt || 'pct0'], xfmt = FMT[spec.xFmt || spec.valueFmt || 'pct0'];
+    const rowLabel = r => r.label + (r.n != null ? `  (n=${r.n})` : '');
+    const labelW = Math.min(Math.max(...spec.rows.map(r => textW(rowLabel(r)))) + 14, W * 0.46);
+    const padR = Math.max(...spec.rows.map(r => textW(fmt(r.value), FONT.mono))) + 14;
+    const rowH = 30, top = 6, H = top + spec.rows.length * rowH + (spec.xLabel ? 44 : 24);
+    const x0 = labelW, x1 = W - padR, yb = top + spec.rows.length * rowH;
+    const ticks = niceTicks(0, Math.max(...spec.rows.map(r => r.value)), 5);
+    const x = lin(0, ticks[ticks.length - 1], x0, x1);
+    ticks.forEach(t => {
+      mk('line', { x1: x(t), x2: x(t), y1: top, y2: yb, class: t === 0 ? 'base' : 'grid' }, g);
+      txt(g, x(t), yb + 16, xfmt(t), '', 'middle');
+    });
+    spec.rows.forEach((r, i) => {
+      const yy = top + i * rowH, bh = 18;
+      const lab = txt(g, x0 - 10, yy + rowH / 2 + 4, r.label, 'lab', 'end');
+      if (r.n != null) { const t = mk('tspan', { class: 'n' }, lab); t.textContent = `  (n=${r.n})`; }
+      mk('path', { d: bar(x0, yy + (rowH - bh) / 2, x(r.value) - x0, bh), fill: color(0), class: 'grow', style: `--i:${i}` }, g);
+      txt(g, x(r.value) + 6, yy + rowH / 2 + 4, fmt(r.value), 'val fade', 'start', i);
+      hover(ctx, { x: 0, y: yy, width: W, height: rowH }, `<b>${esc(r.label)}</b><br>${fmt(r.value)}${r.n != null ? `<br>n=${r.n}` : ''}`, x(r.value), yy + 4);
+    });
+    if (spec.xLabel) txt(g, (x0 + x1) / 2, yb + 38, spec.xLabel, 'lab', 'middle');
+    return H;
+  }
+
+  const hbarTable = spec => table([spec.rowName || 'Group', 'Value', ...(spec.rows[0].n != null ? ['n'] : [])],
+    spec.rows.map(r => [r.label, FMT[spec.valueFmt || 'pct0'](r.value), ...(r.n != null ? [FMT.int(r.n)] : [])]));
+
+  /* ── hbox-diverge: horizontal box plots beside a diverging bar panel ── */
+
+  function drawHBoxDiverge(ctx, spec) {
+    const { W, g } = ctx, bf = FMT[spec.boxFmt || 'usdK'], df = FMT[spec.diffFmt || 'signedUsdK1'];
+    const rowLabel = r => `${r.label}  (n=${r.n})`;
+    const labelW = Math.max(...spec.rows.map(r => textW(rowLabel(r)))) + 14;
+    const rest = W - labelW - 8, gap = 28, lw = rest * 0.58, rw = rest - lw - gap;
+    const rowH = 34, top = 30, yb = top + spec.rows.length * rowH, H = yb + 26;
+    const lx0 = labelW, lx1 = labelW + lw, rx0 = lx1 + gap, rx1 = rx0 + rw;
+    const all = spec.rows.flatMap(r => [r.box.lo, r.box.hi, ...r.box.fliers]);
+    const ticks = niceTicks(Math.min(...all), Math.max(...all), 5);
+    const x = lin(ticks[0], ticks[ticks.length - 1], lx0, lx1);
+    const lim = Math.max(...spec.rows.map(r => Math.abs(r.diff))) * 1.6;
+    const d = lin(-lim, lim, rx0, rx1);
+    txt(g, lx0, 14, spec.leftTitle, 'lab-strong');
+    txt(g, rx0, 14, spec.rightTitle, 'lab-strong');
+    ticks.forEach(t => {
+      mk('line', { x1: x(t), x2: x(t), y1: top - 6, y2: yb, class: 'grid' }, g);
+      txt(g, x(t), yb + 16, bf(t), '', 'middle');
+    });
+    mk('line', { x1: d(0), x2: d(0), y1: top - 6, y2: yb, class: 'zero' }, g);
+    spec.rows.forEach((r, i) => {
+      const yy = top + i * rowH, cy = yy + rowH / 2, bh = 18, b = r.box, c = color(0);
+      const lab = txt(g, lx0 - 10, cy + 4, r.label, 'lab', 'end');
+      const t = mk('tspan', { class: 'n' }, lab); t.textContent = `  (n=${r.n})`;
+      const wg = mk('g', { class: 'fade', style: `--i:${i}`, stroke: c, 'stroke-width': 1.5 }, g);
+      mk('line', { x1: x(b.lo), x2: x(b.q1), y1: cy, y2: cy }, wg);
+      mk('line', { x1: x(b.q3), x2: x(b.hi), y1: cy, y2: cy }, wg);
+      mk('line', { x1: x(b.lo), x2: x(b.lo), y1: cy - 5, y2: cy + 5 }, wg);
+      mk('line', { x1: x(b.hi), x2: x(b.hi), y1: cy - 5, y2: cy + 5 }, wg);
+      const fl = mk('g', { class: 'fade', style: `--i:${i}`, fill: c, 'fill-opacity': 0.4 }, g);
+      b.fliers.forEach(v => mk('circle', { cx: x(v), cy, r: 2 }, fl));
+      mk('rect', { x: x(b.q1), y: cy - bh / 2, width: Math.max(x(b.q3) - x(b.q1), 1), height: bh, rx: 3, fill: c, class: 'grow mid', style: `--i:${i}` }, g);
+      mk('line', { x1: x(b.med), x2: x(b.med), y1: cy - bh / 2, y2: cy + bh / 2, stroke: '#fff', 'stroke-width': 2, class: 'fade', style: `--i:${i}` }, g);
+      const pos = r.diff >= 0, w = Math.abs(d(r.diff) - d(0));
+      mk('path', { d: bar(pos ? d(0) : d(0) - w, cy - bh / 2, w, bh, pos ? 'right' : 'left'), fill: color(pos ? 0 : 1), class: `grow${pos ? '' : ' from-right'}`, style: `--i:${i}` }, g);
+      txt(g, d(r.diff) + (pos ? 6 : -6), cy + 4, df(r.diff), 'val fade', pos ? 'start' : 'end', i);
+      hover(ctx, { x: 0, y: yy, width: W, height: rowH },
+        `<b>${esc(r.label)}</b><br>Median first salary ${FMT.usd(b.med)}<br>Middle 50% ${bf(b.q1)}–${bf(b.q3)}<br>Now vs peers ${df(r.diff)}<br>n=${FMT.int(r.n)}`, x(b.med), cy - bh / 2);
+    });
+    return H;
+  }
+
+  const hboxTable = spec => table([spec.rowName || 'Group', 'n', 'Q1', 'Median', 'Q3', 'Now vs peers'],
+    spec.rows.map(r => [r.label, FMT.int(r.n), FMT.usd(r.box.q1), FMT.usd(r.box.med), FMT.usd(r.box.q3), FMT[spec.diffFmt || 'signedUsdK1'](r.diff)]));
+
+  const TYPES = {
+    box: { draw: drawBoxes, table: boxTable },
+    'line-band': { draw: drawLineBand, table: lineBandTable },
+    step: { draw: drawStep, table: stepTable },
+    pie: { draw: drawPies, table: pieTable },
+    bar: { draw: drawBars, table: barTable },
+    hbar: { draw: drawHBars, table: hbarTable },
+    'hbox-diverge': { draw: drawHBoxDiverge, table: hboxTable },
+  };
+
+  /* ── scroll-linked motion ─────────────────────────────────────────────── */
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  const smooth = t => t * t * (3 - 2 * t);   // smoothstep: eases both ways, so rewinding feels like playing
+  const END = 0.45;   // progress is 0 with the plot's top at the viewport bottom, 1 once it reaches 45% down
+
+  /**
+   * Put every mark at chart progress p. Starts are staggered by --i across the
+   * first 45% of the timeline; labels (.fade) follow their marks.
+   */
+  function applyMarks(marks, n, p) {
+    const stag = n > 1 ? 0.45 / (n - 1) : 0;
+    for (const m of marks) {
+      const t0 = m.i * stag;
+      if (m.kind === 'fade') { m.el.style.opacity = smooth(clamp01((p - t0 - 0.3) / 0.25)); continue; }
+      const e = smooth(clamp01((p - t0) / 0.55));
+      if (m.kind === 'grow') m.el.style.transform = `scaleX(${e})`;
+      else if (m.kind === 'grow-y') m.el.style.transform = `scaleY(${e})`;
+      else if (m.kind === 'draw') m.el.style.strokeDashoffset = 1 - e;
+      else m.el.style.strokeDasharray = `${e * m.dash} ${m.c}`;   // sweep
+    }
+  }
+
+  const charts = [];
+  let ticking = false;
+
+  /** One rAF loop for every chart: ease each chart's shown progress toward its scroll position. */
+  function frame() {
+    ticking = false;
+    const vh = innerHeight;
+    const atBottom = scrollY + vh >= document.documentElement.scrollHeight - 2;
+    for (const c of charts) {
+      if (!c.svg) continue;
+      const top = c.svg.getBoundingClientRect().top;
+      let target = reduced.matches ? 1 : clamp01((vh - top) / (vh * (1 - END)));
+      if (atBottom && top < vh) target = 1;   // the page can't scroll further, so let what's on screen finish
+      const next = reduced.matches || Math.abs(target - c.p) < 0.002 ? target : c.p + (target - c.p) * 0.22;
+      if (next !== c.p || c.dirty) { c.p = next; c.dirty = false; applyMarks(c.marks, c.n, c.p); }
+      if (c.p !== target) ticking = true;
+    }
+    if (ticking) requestAnimationFrame(frame);
+  }
+  const kick = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
+  addEventListener('scroll', kick, { passive: true });
+  addEventListener('resize', kick);
+  reduced.addEventListener('change', kick);
+
+  /* ── mounting, resize ─────────────────────────────────────────────────── */
+
+  function mount(el, spec) {
+    const type = TYPES[spec && spec.type];
+    if (!type) { el.textContent = `No chart data for "${el.dataset.chart}".`; return; }
+    el.replaceChildren();
+
+    const head = html('div', 'chart-head');
+    const titles = html('div');
+    titles.append(html('div', 'chart-title', spec.title));
+    if (spec.subtitle) titles.append(html('div', 'chart-sub', spec.subtitle));
+    head.append(titles);
+    // a legend whenever a chart has 2+ series; identity is the swatch, text stays in ink
+    const names = spec.legend || (spec.series || []).map(s => (typeof s === 'string' ? s : s.label));
+    if (names.length > 1) {
+      const ul = html('ul', 'legend');
+      names.forEach((l, i) => { const li = html('li'); const sw = html('i'); sw.style.background = color(i); li.append(sw, l); ul.append(li); });
+      head.append(ul);
+    }
+    const scroller = html('div', 'chart-scroll');
+    const inner = html('div', 'chart-inner');
+    scroller.append(inner);
+    el.append(head, scroller);
+    if (spec.note) el.append(html('p', 'chart-note', spec.note));
+    const det = html('details', 'chart-table');
+    det.innerHTML = `<summary>Table view</summary><div class="table-wrap">${type.table(spec)}</div>`;
+    el.append(det);
+
+    const c = { svg: null, marks: [], n: 1, p: 0, dirty: true };
+    charts.push(c);
+    let lastW = 0;
+    const width = () => Math.max(Math.floor(scroller.clientWidth), spec.minWidth || 0);
+    const draw = () => {
+      const W = width();
+      if (!W) return;
+      lastW = W;
+      inner.replaceChildren();
+      const svg = mk('svg', { class: 'chart-svg', role: 'img', 'aria-label': `${spec.title}. Full data in the table view.` });
+      inner.append(svg);
+      const plot = mk('g', { class: 'plot' }, svg);
+      const tipEl = html('div', 'chart-tip');
+      tipEl.hidden = true;
+      inner.append(tipEl);
+      const tip = {
+        // above the anchor, clamped inside the chart so the scroller never clips it
+        show(h, x, y) {
+          tipEl.innerHTML = h;
+          tipEl.hidden = false;
+          const w = tipEl.offsetWidth, th = tipEl.offsetHeight;
+          const top = y - th - 10 < 0 ? y + 14 : y - th - 10;
+          tipEl.style.left = `${Math.min(Math.max(x - w / 2, 4), W - w - 4)}px`;
+          tipEl.style.top = `${top}px`;
+        },
+        hide() { tipEl.hidden = true; },
+      };
+      const H = type.draw({ W, g: plot, svg, tip }, spec);
+      svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+      // register the animated marks; a redraw keeps the chart's current progress
+      c.svg = svg;
+      c.marks = [...plot.querySelectorAll('.grow, .grow-y, .fade, .draw, .sweep')].map(m => {
+        const cl = m.classList, st = m.style;
+        const kind = cl.contains('grow') ? 'grow' : cl.contains('grow-y') ? 'grow-y' : cl.contains('draw') ? 'draw' : cl.contains('sweep') ? 'sweep' : 'fade';
+        return { el: m, kind, i: parseFloat(st.getPropertyValue('--i')) || 0,
+          dash: parseFloat(st.getPropertyValue('--dash')), c: parseFloat(st.getPropertyValue('--c')) };
+      });
+      c.n = Math.max(0, ...c.marks.map(m => m.i)) + 1;
+      applyMarks(c.marks, c.n, c.p);
+      kick();
+    };
+    draw();
+
+    let pending = false;
+    new ResizeObserver(() => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => { pending = false; if (width() !== lastW) draw(); });
+    }).observe(scroller);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);   // re-measure labels once webfonts land
+  }
+
+  document.querySelectorAll('[data-chart]').forEach(el => mount(el, DATA[el.dataset.chart]));
+})();
+</script>
+<script>
+  // Count-up stats. The markup already holds the real figures; the count starts
+  // when the strip first scrolls into view and always lands on them exactly.
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    const nums = document.querySelectorAll('[data-count]');
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      io.disconnect();
+      nums.forEach(n => {
+        const end = +n.dataset.count, dec = +(n.dataset.dec || 0), suffix = n.dataset.suffix || '';
+        const t0 = performance.now();
+        const step = t => {
+          const p = Math.min((t - t0) / 1100, 1);
+          n.textContent = (p < 1 ? end * (1 - (1 - p) ** 3) : end).toFixed(dec) + suffix;
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    }, { threshold: 0.3 });
+    io.observe(document.querySelector('.stats'));
+  }
+</script>
