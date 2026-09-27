@@ -541,33 +541,42 @@
  * function to swap: her brain (askAnn, for Gemini) and her voice (annVoice.speak, for ElevenLabs).
  */
 
-/* ── Ann's brain (placeholder) ─────────────────────────────────────────────
- * askAnn({ messages, attachments }) resolves with Ann's reply as plain text.
- *   messages:    the whole conversation so far, oldest first: [{ role: "user" | "ann", text }]
- *   attachments: files sent with the latest message: [{ name, type, size, dataUrl }]
- * To link Gemini, replace the body with a call to your own server, which holds the API key
- * (never put the key in this page: anyone who opens it can read it).
+/* ── Ann's brain ───────────────────────────────────────────────────────────
+ * askAnn({ messages, attachments, conversation }) resolves with Ann's reply as plain text.
+ *   messages:     the whole conversation so far, oldest first: [{ role: "user" | "ann", text }]
+ *   attachments:  files sent with the latest message: [{ name, type, size, dataUrl }]
+ *   conversation: bumped by ↻, so the server starts a fresh profile for a restarted chat
+ * The page asks site/ann_server.py (POST /api/ann), which holds the Gemini key and runs the advisor
+ * (never put a key in this page: anyone who opens it can read it). Opened without that server,
+ * for example the built file from disk, Ann says her brain isn't connected.
  */
-async function askAnn({ messages, attachments }) {
-  await new Promise(r => setTimeout(r, 900));
-  if (attachments.length) {
-    const kinds = attachments.map(a => (a.type.startsWith('image/') ? 'picture' : a.type.startsWith('audio/') ? 'recording' : 'file'));
-    const what = kinds.length === 1 ? `your ${kinds[0]}` : `your ${kinds.length} files`;
-    return `Thanks for ${what}! My brain isn't connected yet, so I can't read it. Once it is, I'll go through it with you.`;
+const annPage = crypto.randomUUID?.() || String(Math.random()).slice(2);   // one id per open page
+let annConversation = `${annPage}-0`;   // the chat Ann is in; her voice lines are logged under it too
+async function askAnn({ messages, attachments, conversation = 0 }) {
+  annConversation = `${annPage}-${conversation}`;
+  let r;
+  try {
+    r = await fetch('/api/ann', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation: annConversation, messages, attachments }),
+    });
+  } catch {
+    return "My brain isn't connected yet. Soon I'll answer your questions for real. For now, you can attach a file, or head back to explore the findings!";
   }
-  return "My brain isn't connected yet. Soon I'll answer your questions for real. For now, you can attach a file, or head back to explore the findings!";
+  if (!r.ok) throw new Error(await r.text());   // the chat shows its "something went wrong" line
+  return (await r.json()).reply;
 }
 
 /* ── Ann's voice ──────────────────────────────────────────────────────────
  * annVoice.speak(text, { onStart, onEnd, onBlocked }) says `text` out loud.
- * Now: the browser's built-in speech, with a female English voice when the browser has one.
- * For ElevenLabs, replace speak(): ask your own server (which holds the ElevenLabs key) for the
- * audio of `text`, then play it with `const a = new Audio(url)`, calling onStart when a.play()
- * begins and onEnd on a's "ended" event. The rest of the page needs no change.
+ * First choice: ElevenLabs, through site/ann_server.py (POST /api/voice, which holds the key).
+ * Fallback when that server or key isn't there: the browser's built-in speech, with a female
+ * English voice when the browser has one. The rest of the page needs no change.
  */
 const annVoice = (() => {
   const synth = window.speechSynthesis || null;
-  let voice = null;
+  let voice = null, audio = null, token = 0;
+  let eleven = location.protocol.startsWith('http');   // turns false after the first failure, so later lines skip the round trip
   const pick = () => {
     const vs = synth ? synth.getVoices() : [];
     for (const p of [/Samantha/, /Google US English/, /Aria/, /Jenny/, /Karen/, /Victoria/, /Zira/, /Female/i]) {
@@ -577,20 +586,38 @@ const annVoice = (() => {
     return vs.find(x => /^en/i.test(x.lang)) || null;
   };
   if (synth) { voice = pick(); synth.addEventListener?.('voiceschanged', () => { voice = pick(); }); }
+  function browserSpeak(text, { onStart, onEnd, onBlocked }) {
+    if (!synth) return onEnd?.();
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) u.voice = voice;
+    u.rate = 1.02; u.pitch = 1.15;
+    u.onstart = () => onStart?.();
+    u.onend = () => onEnd?.();
+    u.onerror = e => { onEnd?.(); if (e.error === 'not-allowed') onBlocked?.(); };   // browsers need a tap before speech
+    synth.speak(u);
+  }
+  const stop = () => { token++; audio?.pause(); audio = null; synth?.cancel(); };
   return {
-    available: !!synth,
-    speak(text, { onStart, onEnd, onBlocked } = {}) {
-      if (!synth) return;
-      synth.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      if (voice) u.voice = voice;
-      u.rate = 1.02; u.pitch = 1.15;
-      u.onstart = () => onStart?.();
-      u.onend = () => onEnd?.();
-      u.onerror = e => { onEnd?.(); if (e.error === 'not-allowed') onBlocked?.(); };   // browsers need a tap before speech
-      synth.speak(u);
+    available: !!synth || eleven,
+    async speak(text, cb = {}) {
+      stop();
+      const mine = token;   // a newer speak() or stop() makes this one drop its audio when it arrives
+      if (eleven) {
+        try {
+          const r = await fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, conversation: annConversation }) });
+          if (!r.ok) throw new Error(`voice ${r.status}`);
+          const url = URL.createObjectURL(await r.blob());
+          if (mine !== token) return URL.revokeObjectURL(url);
+          audio = new Audio(url);
+          audio.onplay = () => cb.onStart?.();
+          audio.onended = () => { URL.revokeObjectURL(url); cb.onEnd?.(); };
+          try { await audio.play(); } catch (e) { cb.onEnd?.(); if (e.name === 'NotAllowedError') cb.onBlocked?.(); }   // browsers need a tap before sound
+          return;
+        } catch { eleven = false; }
+      }
+      if (mine === token) browserSpeak(text, cb);
     },
-    stop() { synth?.cancel(); },
+    stop,
   };
 })();
 
@@ -738,7 +765,7 @@ const annVoice = (() => {
     typing.querySelector('.text').innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
     const mine = session;
     let reply;
-    try { reply = await askAnn({ messages: messages.slice(), attachments }); }
+    try { reply = await askAnn({ messages: messages.slice(), attachments, conversation: session }); }
     catch { reply = 'Sorry, something went wrong on my side. Try again in a moment.'; }
     if (mine !== session) return;   // the chat was restarted while Ann was thinking
     typing.remove();

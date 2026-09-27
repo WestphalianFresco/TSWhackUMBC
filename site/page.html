@@ -589,8 +589,8 @@
         <div class="sub-head"><h3>Internships and job routes</h3></div>
         <div class="stack">
           <div class="col">
-          {{CELL:strat_internships|alum.groupby(<span class="s">"nIntern"</span>)[[<span class="s">"months_to_first_job"</span>, <span class="s">"sal_adj"</span>]].median()}}
-            <p>Internships help on every count: full-time employment rises from 70% with none to 78% with two or more, time to the first job drops from 4.2 to 0.3 months, and pay goes from $10.0K below similar grads to $8.5K above with three or more.</p>
+          {{CELL:time_to_hire|a.plot_time_to_hire(intern[<span class="s">"df_intern"</span>])}}
+            <p>Most employed alumni with 2 or 3 internships were hired within a month of graduation, while those with 0 or 1 took much longer. A 3rd internship adds little over a 2nd for both salary and hire time.</p>
           {{/CELL}}
           </div>
           <div class="grid2">
@@ -761,17 +761,15 @@
         <h3>Internships and their effect on success</h3>
     </div>
     <div class="stack">
-      <div class="grid2">
-        <div class="col">
-          {{CELL:salary_by_internships|a.plot_salary_by_internships(intern[<span class="s">"df_intern"</span>])}}
-          <p>There is a large difference in starting salary between alumni with 0 and 3 internships, but the 2- and 3-internship distributions overlap heavily. <strong>Salary gains level off after 2 internships.</strong></p>
-          {{/CELL}}
-        </div>
-        <div class="col">
-          {{CELL:time_to_hire|a.plot_time_to_hire(intern[<span class="s">"df_intern"</span>])}}
-          <p>Most employed alumni with 2 or 3 internships were hired within a month of graduation, while those with 0 or 1 took much longer. A 3rd internship adds little over a 2nd for both salary and hire time.</p>
-          {{/CELL}}
-        </div>
+      <div class="col">
+        {{CELL:salary_by_internships|a.plot_salary_by_internships(intern[<span class="s">"df_intern"</span>])}}
+        <p>There is a large difference in starting salary between alumni with 0 and 3 internships, but the 2- and 3-internship distributions overlap heavily. <strong>Salary gains level off after 2 internships.</strong></p>
+        {{/CELL}}
+      </div>
+      <div class="col">
+        {{CELL:strat_internships|alum.groupby(<span class="s">"nIntern"</span>)[[<span class="s">"months_to_first_job"</span>, <span class="s">"sal_adj"</span>]].median()}}
+        <p>Internships help on every count: full-time employment rises from 70% with none to 78% with two or more, time to the first job drops from 4.2 to 0.3 months, and pay goes from $10.0K below similar grads to $8.5K above with three or more.</p>
+        {{/CELL}}
       </div>
       <div class="col">
         {{CELL:return_offers|a.plot_return_offers(intern[<span class="s">"offer_table"</span>])}}
