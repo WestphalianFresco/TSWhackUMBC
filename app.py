@@ -89,6 +89,12 @@ with tabs[1]:
             "with 0 or 1 took much longer. A 3rd internship adds little over a 2nd for both salary and hire time."
         )
     show(a.plot_return_offers(intern['offer_table']))
+    st.markdown(
+        "At every internship count, alumni whose first job was a **return offer** earned a higher median starting "
+        "salary: +\\$5,250 with 1 internship and +\\$6,750 with 2 or 3. Return offers also become much more common "
+        "with more internships (25% with 1, 47% with 2, 66% with 3), so part of the value of more internships is a "
+        "better chance of converting one into a higher-paying offer."
+    )
     with st.expander("Outcomes by internship count"):
         st.dataframe(intern['by_intern'], hide_index=True)
     with st.expander("Return offer premium"):
@@ -125,9 +131,24 @@ with tabs[2]:
 
 with tabs[3]:
     st.header("Unemployment rates")
-    left, _ = st.columns([2, 1])
+    rates, by_major = unemp['unemp']['rate'], unemp['by_major']
+    left, right = st.columns([2, 1])
     with left:
-        show(a.plot_unemployment(unemp['unemp'], unemp['overall_rate'], unemp['by_major']))
+        show(a.plot_unemployment(unemp['unemp'], unemp['overall_rate'], by_major))
+    with right:
+        st.markdown(
+            f"Unlike the other tabs, this includes alumni still seeking work. Overall, **{unemp['overall_rate']:.1%}** "
+            f"of alumni in the labor force were still seeking work after graduation, and major makes almost no "
+            f"difference (CS {by_major['Computer Science']:.1%} vs IS {by_major['Information Systems']:.1%})."
+        )
+        st.markdown(
+            "**Internships make a much bigger difference:** the rate drops steadily from "
+            + ", ".join(f"{r:.1%} with {n}" for n, r in rates.items()) + " internships."
+        )
+        st.markdown(
+            "Salary and hiring speed leveled off after 2 internships, but unemployment **keeps dropping with a 3rd**, "
+            f"although that group is smaller (n={unemp['unemp'].loc[3, 'alum_count']})."
+        )
 
 # ---------------------------------------------------------------- activities
 
@@ -136,7 +157,25 @@ with tabs[4]:
     left, right = st.columns(2)
     with left:
         show(a.plot_experience_share(activities['pct_curr']))
+        st.markdown(
+            "**Student organizations** are by far the most common experience (66%), followed by internships (44%) "
+            "and campus jobs (42%). Since internships are tied to higher salaries, faster hiring, and lower "
+            "unemployment, **over half of current students not having one yet** is a clear opportunity, though "
+            "some of this is expected since about half are freshmen or sophomores."
+        )
     with right:
         show(a.plot_top_orgs(activities['top10'], activities['baseline']))
+        st.markdown(
+            "**3 of the top 4 are certification providers**, and most of the rest are internship employers in "
+            "industries that also paid well as a first job, like Cloud & Infrastructure, Telecommunications, and "
+            "Cybersecurity Services. This shows correlation, not causation: students who pursue these may already "
+            "be heading toward higher-paying fields."
+        )
     with st.expander("Experience types"):
-        st.dataframe(activities['exp_by_type'])  # blank cells = not applicable to that type
+        st.markdown(
+            "Internships, co-ops, and hackathons are the most time-intensive (28–40 hours/week), while student "
+            "organizations, tutoring, and peer mentoring take under 8. Internships and co-ops are mostly paid; "
+            "student organizations, hackathons, and competitive teams are unpaid. Blank cells mean hours and pay "
+            "don't apply (certifications)."
+        )
+        st.dataframe(activities['exp_by_type'])
