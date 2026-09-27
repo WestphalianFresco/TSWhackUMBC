@@ -1,0 +1,27 @@
+{
+  "name": "Mock Student A",
+  "major": "Computer Science",
+  "track": "Cybersecurity",
+  "entry_type": "First-Time Freshman",
+  "entry_term": "Fall 2024",
+  "credits_earned": 62,
+  "credits_required": 120,
+  "cumulative_gpa": 3.1,
+  "is_first_generation": true,
+  "work_hours_per_week": 12,
+  "experiences": [
+    {"experience_type": "Student Organization", "organization": "Retriever Cyber Club", "role_level": "Member", "term": "Fall 2024"},
+    {"experience_type": "Hackathon", "organization": "HackUMBC", "role_level": "Participant", "term": "Fall 2025"},
+    {"experience_type": "Certification", "organization": "Brightline Code School", "experience_name": "Java Application Developer", "term": "Spring 2026"}
+  ],
+  "courses": [
+    {"course_id": "CMSC201", "grade": "A"},
+    {"course_id": "CMSC202", "grade": "B"},
+    {"course_id": "CMSC203", "grade": "B"},
+    {"course_id": "MATH151", "grade": "B"},
+    {"course_id": "MATH152", "grade": "C"},
+    {"course_id": "CMSC313", "grade": "C"},
+    {"course_id": "CMSC331", "grade": "B"},
+    {"course_id": "CMSC341", "grade": "W"}
+  ]
+}
