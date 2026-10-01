@@ -46,6 +46,11 @@ Chart animation follows the scrollbar. As a chart rises through the bottom 75% o
 | `bubble` | `points: [{label, x, y, n, hl, p?, side?}]` | Which activity types pay off |
 | `dotline` | `points: [{label, value, sub, n?}]` | Salary by club involvement |
 | `hexbin` | `hexes: [{x, y, c}]`, `sx`, `sy` (from matplotlib's `hexbin`), `line` | GPA vs starting pay |
+| `lineup` | `rows: [{label, pct, you, median, status, s?}]` (percentile 0–100; leave out `s` for a grey dot) | Advisor Ann: where you line up among peers |
+| `ranked` | `rows: [{label, value, sub?}]` (each name on its own line above its bar) | Advisor Ann: your top moves |
+| `range` | `rows: [{label, value, lo, hi}]`, optional `ref` line, `rangeName` | Advisor Ann: where you could start |
+
+The last three are the charts Advisor Ann sends with her advice (`site/ann_server.py` builds their specs). Her chat draws them with `window.successCharts.mount(el, spec, { play: true })`, so they play in once instead of following the scrollbar, and they fit a phone. Every chart is laid out at 1× and drawn up to `SCALE` (1.3) times larger where its box has room.
 
 `box(values)` in `build.py` gives the same quartiles, whiskers, and outliers matplotlib draws. Formats (`usdK`, `pct1`, `signedUsdK1`, ...) are in `FMT` in `charts.js`. Series colors come from `--s1`–`--s4` in `page.html`, which are `analysis.py`'s palette and its dark-mode steps.
 

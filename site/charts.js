@@ -9,13 +9,17 @@
  * Motion is tied to scroll position: as a chart rises up the screen its bars
  * grow, lines draw, pies sweep, and labels fade in after their marks
  * (staggered by --i); scrolling back up rewinds it, and stopping mid-scroll
- * holds it part-way. Reduced motion shows the final state. Charts are drawn at
- * the container's real pixel width so text stays readable, and redraw at their
- * current progress on resize.
+ * holds it part-way. Reduced motion shows the final state. Charts are laid out
+ * for the container's width, then drawn up to SCALE times larger (text and marks
+ * alike) where there is room, and redraw at their current progress on resize.
+ *
+ * window.successCharts.mount(el, spec, { play: true }) draws a chart anywhere,
+ * for example in Advisor Ann's chat, where it plays in once instead of
+ * following the scrollbar.
  */
 (() => {
   const NS = 'http://www.w3.org/2000/svg';
-  const DATA = JSON.parse(document.getElementById('chart-data').textContent);
+  const DATA = JSON.parse(document.getElementById('chart-data')?.textContent || '{}');   // the chat page has none
   // the Python behind each chart (a notebook's setup + chart cells, or the analysis.py call), for "Copy code"
   const CODE = (() => { try { return JSON.parse(document.getElementById('chart-code')?.textContent || '{}'); } catch { return {}; } })();
   const color = i => `var(--s${(i % 4) + 1})`;
@@ -68,6 +72,12 @@
 
   const lin = (d0, d1, r0, r1) => v => r0 + ((v - d0) / (d1 - d0 || 1)) * (r1 - r0);
 
+  /** A pointer event's position in the chart's own coordinates (the drawing may be scaled up on screen). */
+  const local = (svg, e) => {
+    const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    return [(e.clientX - r.left) * vb.width / r.width, (e.clientY - r.top) * vb.height / r.height];
+  };
+
   /** Rounded tick values covering [min, max]. */
   function niceTicks(min, max, count = 5) {
     const span = max - min || Math.abs(max) || 1;
@@ -109,8 +119,7 @@
     const dots = mk('g', { visibility: 'hidden' }, svg);
     const hit = mk('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: 'transparent' }, svg);
     hit.addEventListener('pointermove', e => {
-      const r = svg.getBoundingClientRect();
-      const px = Math.max(x0, Math.min(x1, e.clientX - r.left));
+      const px = Math.max(x0, Math.min(x1, local(svg, e)[0]));
       const res = onMove(px);
       if (!res) return;
       line.setAttribute('x1', res.x); line.setAttribute('x2', res.x); line.setAttribute('visibility', 'visible');
@@ -297,8 +306,8 @@
       });
       const hit = mk('circle', { cx, cy, r: R, fill: 'transparent' }, ctx.svg);
       hit.addEventListener('pointermove', e => {
-        const r = ctx.svg.getBoundingClientRect();
-        let ang = Math.atan2(e.clientY - r.top - cy, e.clientX - r.left - cx) + Math.PI / 2;
+        const [px, py] = local(ctx.svg, e);
+        let ang = Math.atan2(py - cy, px - cx) + Math.PI / 2;
         if (ang < 0) ang += 2 * Math.PI;
         let f = ang / (2 * Math.PI), k = 0;
         while (k < p.slices.length - 1 && f > p.slices[k].count / total) { f -= p.slices[k].count / total; k++; }
@@ -818,6 +827,118 @@
 
   const hexbinTable = spec => table([spec.xName || 'x', spec.lineName || 'Median', 'n'], spec.line.map(p => [p.label || FMT[spec.xFmt || 'num'](p.x), FMT[spec.yFmt || 'signedUsdK'](p.y), p.n == null ? '' : FMT.int(p.n)]));
 
+  /* ── charts Advisor Ann sends in her chat: each row's name sits on its own line, so they fit a phone ── */
+
+  /** Words wrapped into lines no wider than w. */
+  const fitLines = (s, w, font) => {
+    const out = [];
+    let line = '';
+    String(s).split(' ').forEach(word => {
+      const next = line ? `${line} ${word}` : word;
+      if (line && textW(next, font) > w) { out.push(line); line = word; } else line = next;
+    });
+    if (line) out.push(line);
+    return out;
+  };
+  const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : { 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'}`;
+
+  /* lineup: one student's percentile among their peers on each measure, over the shaded middle half;
+     a row's dot takes its series color (s), or grey when it has none (context, not a score) */
+
+  function drawLineup(ctx, spec) {
+    const { W, g } = ctx;
+    const sub = r => `you ${r.you} · peer median ${r.median}`;
+    const pctW = textW('100th', FONT.mono) + 16;
+    const inline = spec.rows.every(r => textW(`${r.label}  ${sub(r)}`, FONT.sansB) + pctW <= W);   // else the values get their own line
+    const rowH = inline ? 48 : 64, top = 2, H = top + spec.rows.length * rowH + 22;
+    const x0 = 7, x1 = W - 7, x = lin(0, 100, x0, x1);
+    spec.rows.forEach((r, i) => {
+      const yy = top + i * rowH, ty = yy + rowH - 17, c = r.s == null ? 'var(--muted)' : color(r.s);
+      const lab = txt(g, 0, yy + 14, r.label, 'lab-strong');
+      if (inline) { const t = mk('tspan', { class: 'n' }, lab); t.textContent = `  ${sub(r)}`; }
+      else txt(g, 0, yy + 31, sub(r), 'n');
+      txt(g, W, yy + 14, ordinal(r.pct), 'val fade', 'end', i);
+      mk('line', { x1: x0, x2: x1, y1: ty, y2: ty, class: 'base' }, g);
+      mk('rect', { x: x(25), y: ty - 6, width: x(75) - x(25), height: 12, rx: 6, fill: 'var(--grid)' }, g);
+      mk('line', { x1: x(50), x2: x(50), y1: ty - 9, y2: ty + 9, class: 'zero' }, g);
+      mk('circle', { cx: x(r.pct), cy: ty, r: 7, fill: c, stroke: 'var(--surface)', 'stroke-width': 2, class: 'pop', style: `--i:${i}` }, g);
+      hover(ctx, { x: 0, y: yy, width: W, height: rowH },
+        `<b>${esc(r.label)}</b><br>You ${esc(r.you)} · peer median ${esc(r.median)}<br><b>${ordinal(r.pct)} percentile</b>${r.status ? ` · ${esc(r.status)}` : ''}`, x(r.pct), ty - 10);
+    });
+    const yb = top + spec.rows.length * rowH + 14;
+    [[0, '0', 'start'], [25, '25th', 'middle'], [50, 'median', 'middle'], [75, '75th', 'middle'], [100, '100th', 'end']]
+      .forEach(([v, s, a]) => txt(g, x(v), yb, s, '', a));
+    return H;
+  }
+
+  const lineupTable = spec => table(['Measure', 'You', 'Peer median', 'Percentile', 'Standing'],
+    spec.rows.map(r => [r.label, r.you, r.median, ordinal(r.pct), r.status || '']));
+
+  /* ranked: a few positive values with long names, largest first */
+
+  function drawRanked(ctx, spec) {
+    const { W, g } = ctx, fmt = FMT[spec.valueFmt || 'signedUsdK1'];
+    const padR = Math.max(...spec.rows.map(r => textW(fmt(r.value), FONT.mono))) + 12;
+    const lines = spec.rows.map(r => {   // the name, wrapped; the detail joins its last line when it fits
+      const ls = fitLines(r.label, W, FONT.sansB);
+      if (!r.sub) return { ls, sub: null };
+      return textW(`${ls[ls.length - 1]}  ${r.sub}`, FONT.sansB) <= W ? { ls, sub: 'same' } : { ls, sub: 'own' };
+    });
+    const x0 = 0, x1 = W - padR, x = lin(0, Math.max(0, ...spec.rows.map(r => r.value)), x0, x1), bh = 18;
+    let yy = 2;
+    spec.rows.forEach((r, i) => {
+      const { ls, sub } = lines[i];
+      ls.forEach((l, k) => {
+        const t = txt(g, 0, yy + 14 + k * 17, l, 'lab-strong');
+        if (sub === 'same' && k === ls.length - 1) { const s = mk('tspan', { class: 'n' }, t); s.textContent = `  ${r.sub}`; }
+      });
+      const nLines = ls.length + (sub === 'own' ? 1 : 0);
+      if (sub === 'own') txt(g, 0, yy + 14 + ls.length * 17, r.sub, 'n');
+      const by = yy + nLines * 17 + 6, ex = x(Math.max(r.value, 0));
+      mk('path', { d: bar(x0, by, ex - x0, bh, 'right'), fill: color(0), class: 'grow', style: `--i:${i}` }, g);
+      txt(g, ex + 6, by + bh / 2 + 4, fmt(r.value), 'val fade', 'start', i);
+      hover(ctx, { x: 0, y: yy, width: W, height: by + bh - yy }, `<b>${esc(r.label)}</b><br>${fmt(r.value)}${r.sub ? `<br>${esc(r.sub)}` : ''}`, ex, by);
+      yy = by + bh + 14;
+    });
+    return yy - 6;
+  }
+
+  const rankedTable = spec => table([spec.rowName || 'Item', spec.valueName || 'Value', 'Detail'],
+    spec.rows.map(r => [r.label, FMT[spec.valueFmt || 'signedUsdK1'](r.value), r.sub || '']));
+
+  /* range: an expected value and its likely range on each row, against a reference line */
+
+  function drawRange(ctx, spec) {
+    const { W, g } = ctx, fmt = FMT[spec.valueFmt || 'signedUsdK'], rangeName = spec.rangeName || 'Range';
+    const ends = spec.rows.flatMap(r => [r.lo, r.hi]).concat(spec.ref ? [spec.ref.value] : []);
+    const ticks = niceTicks(Math.min(...ends), Math.max(...ends), W < 420 ? 3 : 5);
+    const rowH = 50, top = spec.ref ? 22 : 4, yb = top + spec.rows.length * rowH, H = yb + 24;
+    const x0 = 8, x1 = W - 8, x = lin(ticks[0], ticks[ticks.length - 1], x0, x1);
+    ticks.forEach((t, k) => txt(g, x(t), yb + 16, fmt(t), '', k === 0 ? 'start' : k === ticks.length - 1 ? 'end' : 'middle'));
+    mk('line', { x1: x0, x2: x1, y1: yb, y2: yb, class: 'base' }, g);
+    if (spec.ref) {
+      const rx = x(spec.ref.value), key = `${spec.ref.label}: ${fmt(spec.ref.value)}`, right = rx + 6 + textW(key, FONT.mono) <= W;
+      const rg = mk('g', { class: 'fade', style: '--i:0' }, g);
+      mk('line', { x1: rx, x2: rx, y1: top - 6, y2: yb, class: 'ref' }, rg);
+      txt(rg, right ? rx + 6 : rx - 6, top - 10, key, '', right ? 'start' : 'end');
+    }
+    spec.rows.forEach((r, i) => {
+      const yy = top + i * rowH, cy = yy + 34;
+      const lab = txt(g, 0, yy + 16, r.label, 'lab-strong halo');
+      const t = mk('tspan', { class: 'n' }, lab); t.textContent = `  expected ${fmt(r.value)}`;
+      mk('line', { x1: x(r.lo), x2: x(r.hi), y1: cy, y2: cy, stroke: light, 'stroke-width': 5, 'stroke-linecap': 'round', class: 'grow mid', style: `--i:${i}` }, g);
+      mk('circle', { cx: x(r.value), cy, r: 7, fill: color(0), stroke: 'var(--surface)', 'stroke-width': 2, class: 'pop', style: `--i:${i}` }, g);
+      hover(ctx, { x: 0, y: yy, width: W, height: rowH },
+        `<b>${esc(r.label)}</b><br>Expected ${fmt(r.value)}<br>${esc(rangeName)}: ${fmt(r.lo)} to ${fmt(r.hi)}`, x(r.value), cy - 8);
+    });
+    return H;
+  }
+
+  const rangeTable = spec => {
+    const f = FMT[spec.valueFmt || 'signedUsdK'];
+    return table([spec.rowName || 'Group', 'Expected', spec.rangeName || 'Range'], spec.rows.map(r => [r.label, f(r.value), `${f(r.lo)} to ${f(r.hi)}`]));
+  };
+
   const TYPES = {
     box: { draw: drawBoxes, table: boxTable },
     'line-band': { draw: drawLineBand, table: lineBandTable },
@@ -837,6 +958,9 @@
     bubble: { draw: drawBubble, table: bubbleTable },
     dotline: { draw: drawDotLine, table: dotLineTable },
     hexbin: { draw: drawHexbin, table: hexbinTable },
+    lineup: { draw: drawLineup, table: lineupTable },
+    ranked: { draw: drawRanked, table: rankedTable },
+    range: { draw: drawRange, table: rangeTable },
   };
 
   /* ── scroll-linked motion ─────────────────────────────────────────────── */
@@ -849,6 +973,8 @@
   const END = 0.25;
   // Share of the remaining distance the shown progress closes each frame. Lower = trails the scroll longer (slower).
   const EASE_IN = 0.1;
+  // How long a chart mounted with { play: true } takes to draw itself in, in milliseconds.
+  const PLAY_MS = 1400;
 
   /**
    * Put every mark at chart progress p. Starts are staggered by --i across the
@@ -877,13 +1003,17 @@
     const vh = innerHeight;
     const atBottom = scrollY + vh >= document.documentElement.scrollHeight - 2;
     for (const c of charts) {
-      if (!c.svg) continue;
-      const top = c.svg.getBoundingClientRect().top;
-      let target = reduced.matches ? 1 : clamp01((vh - top) / (vh * (1 - END)));
-      if (atBottom && top < vh) target = 1;   // the page can't scroll further, so let what's on screen finish
-      const next = reduced.matches || Math.abs(target - c.p) < 0.002 ? target : c.p + (target - c.p) * EASE_IN;
+      if (!c.svg || !c.svg.isConnected) continue;   // not drawn yet, or removed (a restarted chat)
+      let target;
+      if (c.play) target = reduced.matches ? 1 : clamp01((performance.now() - c.t0) / PLAY_MS);
+      else {
+        const top = c.svg.getBoundingClientRect().top;
+        target = reduced.matches ? 1 : clamp01((vh - top) / (vh * (1 - END)));
+        if (atBottom && top < vh) target = 1;   // the page can't scroll further, so let what's on screen finish
+      }
+      const next = c.play || reduced.matches || Math.abs(target - c.p) < 0.002 ? target : c.p + (target - c.p) * EASE_IN;
       if (next !== c.p || c.dirty) { c.p = next; c.dirty = false; applyMarks(c.marks, c.n, c.p); }
-      if (c.p !== target) ticking = true;
+      if (c.p !== target || (c.play && target < 1)) ticking = true;   // a playing chart keeps going until it's drawn
     }
     if (ticking) requestAnimationFrame(frame);
   }
@@ -936,7 +1066,12 @@
 
   /* ── mounting, resize ─────────────────────────────────────────────────── */
 
-  function mount(el, spec) {
+  // A chart is laid out for its box at 1× and drawn up to SCALE times larger, so text, marks and gaps grow
+  // together. The layout keeps at least MIN_W (or the chart's own minWidth) 1× pixels for its labels, so a
+  // narrow box (a phone, a half-width card) scales up less, and below that it scrolls as before.
+  const SCALE = 1.3, MIN_W = 440;
+
+  function mount(el, spec, { play = false } = {}) {
     const type = TYPES[spec && spec.type];
     if (!type) { el.textContent = `No chart data for "${el.dataset.chart}".`; return; }
     const caption = el.querySelector(':scope > .chart-caption');   // text from page.html, kept inside the card
@@ -972,14 +1107,16 @@
     if (CODE[el.dataset.chart]) foot.append(copyButton(el, CODE[el.dataset.chart]));
     el.append(foot);
 
-    const c = { svg: null, marks: [], n: 1, p: 0, dirty: true };
+    const c = { svg: null, marks: [], n: 1, p: 0, dirty: true, play, t0: performance.now() };
     charts.push(c);
     let lastW = 0;
-    const width = () => Math.max(Math.floor(scroller.clientWidth), spec.minWidth || 0);
+    const width = () => Math.floor(scroller.clientWidth);
     const draw = () => {
-      const W = width();
-      if (!W) return;
-      lastW = W;
+      const box = width();
+      if (!box) return;
+      lastW = box;
+      const k = Math.max(1, Math.min(SCALE, box / Math.max(MIN_W, spec.minWidth || 0)));
+      const W = Math.max(box / k, spec.minWidth || 0);   // the 1× layout width
       inner.replaceChildren();
       const svg = mk('svg', { class: 'chart-svg', role: 'img', 'aria-label': `${spec.title}. Full data in the table view.` });
       inner.append(svg);
@@ -988,19 +1125,19 @@
       tipEl.hidden = true;
       inner.append(tipEl);
       const tip = {
-        // above the anchor, clamped inside the chart so the scroller never clips it
+        // above the anchor (given in chart coordinates), clamped inside the chart so the scroller never clips it
         show(h, x, y) {
           tipEl.innerHTML = h;
           tipEl.hidden = false;
-          const w = tipEl.offsetWidth, th = tipEl.offsetHeight;
-          const top = y - th - 10 < 0 ? y + 14 : y - th - 10;
-          tipEl.style.left = `${Math.min(Math.max(x - w / 2, 4), W - w - 4)}px`;
+          const w = tipEl.offsetWidth, th = tipEl.offsetHeight, ax = x * k, ay = y * k;
+          const top = ay - th - 10 < 0 ? ay + 14 : ay - th - 10;
+          tipEl.style.left = `${Math.min(Math.max(ax - w / 2, 4), W * k - w - 4)}px`;
           tipEl.style.top = `${top}px`;
         },
         hide() { tipEl.hidden = true; },
       };
       const H = type.draw({ W, g: plot, svg, tip }, spec);
-      svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.setAttribute('width', W * k); svg.setAttribute('height', H * k); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
       // register the animated marks; a redraw keeps the chart's current progress
       c.svg = svg;
@@ -1026,4 +1163,5 @@
   }
 
   document.querySelectorAll('[data-chart]').forEach(el => mount(el, DATA[el.dataset.chart]));
+  window.successCharts = { mount };
 })();

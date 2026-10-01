@@ -2,12 +2,13 @@
 
     python site/ann_server.py        ->  open http://localhost:8000
 
-GET  /           the "Enter my data" chat, assembled like build.py does (page.html head + enter.html + advisor.js),
+GET  /           the "Enter my data" chat, assembled like build.py does (page.html head + enter.html + charts.js + advisor.js),
                  so an edit to advisor.js shows up on refresh without rebuilding
-POST /api/ann    {conversation, messages, attachments} -> {reply}
+POST /api/ann    {conversation, messages, attachments} -> {reply, charts}
                  Gemini turns what the student typed, said (audio) or uploaded into fields the advisor understands;
                  the advisor validates them, Ann asks for anything missing, and once the student confirms,
-                 the tested pipeline (not Gemini) produces the advice
+                 the tested pipeline (not Gemini) produces the advice, with charts.js specs drawn under it:
+                 where the student lines up among peers, their top moves, and where they could start
 POST /api/voice  {text} -> audio/mpeg from ElevenLabs; 503 when no key, and the page falls back to the browser voice
 GET  /api/stats  Ann's live usage for the last 24 hours, from the Tiger Data continuous aggregate
 
@@ -312,7 +313,8 @@ def ordinal(n):
 
 
 def advice(d):
-    """Only numbers from the tested pipeline: the advisor's own progress, projection and ranked levers."""
+    """Only numbers from the tested pipeline: the advisor's own progress, projection and ranked levers,
+    said in words and drawn in the charts that go with them."""
     r = adv.advise(d, CTX)
     s, p, f, st = r["student"], r["progress"], r["future"], r["strategy"]
     behind = p["vs_peers"][p["vs_peers"]["status"] == "behind"]
@@ -323,10 +325,47 @@ def advice(d):
     moves = " ".join(f"{i}) {lever} (about {gain:+,.0f} dollars" + (f", {-months:.1f} months faster" if months < -0.05 else "") + ")."
                      for i, (lever, gain, months) in enumerate(zip(rec["lever"], rec["salary gain ($)"], rec["months to first job"]), 1))
     risk = f" Heads-up: {st['risks'][0]}" if st["risks"] else ""
-    return (f"Thanks! Compared with {p['peers_n']} current {s['major']} {s['class_level']}s, {standing}. "
+    text = (f"Thanks! Here's where you line up: compared with {p['peers_n']} current {s['major']} {s['class_level']}s, {standing}. "
             f"If nothing changes, alumni like you started about {abs(prem):,.0f} dollars "
             f"{'above' if prem >= 0 else 'below'} similar grads. My top moves for you: {moves}{risk} "
             "These are patterns from past alumni, not guarantees. Tell me if anything changes and I'll update your plan.")
+    return text, [lineup_chart(s, p), moves_chart(rec), outlook_chart(f["projection"]["premium"], rec)]
+
+
+# ---------------------------------------------------------------- the charts Ann sends (types in charts.js)
+
+def lineup_chart(s, p):
+    """Where you line up: the student's percentile among current peers on each measure progress() compares."""
+    series = {"typical": 0, "behind": 1, "ahead": 2}   # the site's blue, orange and green; a context row (no score) is grey
+    value = lambda metric, v: f"{v:.2f}" if metric == "GPA" else f"{float(v):g}"
+    rows = [dict(label=m, pct=int(pct), you=value(m, you), median=value(m, med), status=status, s=series.get(status))
+            for m, you, med, pct, status in p["vs_peers"].itertuples(index=False)]
+    shown = {r["status"] for r in rows}
+    legend = [dict(label=label, color=f"var(--s{series[k] + 1})") for k, label in
+              [("behind", "Behind (under the 25th)"), ("typical", "Typical"), ("ahead", "Ahead (over the 75th)")] if k in shown]
+    return dict(type="lineup", title="Where you line up", legend=legend, rows=rows,
+                subtitle=f"Your percentile among {p['peers_n']} current {s['major']} {s['class_level'].lower()}s",
+                note="Shaded: the middle half of your peers (25th to 75th percentile)."
+                     + (" Work hours are context, not a score." if "context" in shown else ""))
+
+
+def moves_chart(rec):
+    """The recommended levers, by expected salary gain (the same three Ann reads out)."""
+    rows = [dict(label=lever, value=round(float(gain)), sub=f"{-months:.1f} months faster to a first job" if months < -0.05 else None)
+            for lever, gain, months in zip(rec["lever"], rec["salary gain ($)"], rec["months to first job"])]
+    return dict(type="ranked", title="Your top moves", rowName="Move", valueName="Expected salary gain", valueFmt="signedUsdK1",
+                subtitle="Expected change in first-job salary, learned from past alumni", rows=rows)
+
+
+def outlook_chart(premium, rec):
+    """The projection's 80% range for one person, as it is and moved by the recommended levers' combined gain."""
+    gain = float(rec["salary gain ($)"].sum())
+    row = lambda label, d: dict(label=label, value=round(float(premium["expected"]) + d),
+                                lo=round(float(premium["low"]) + d), hi=round(float(premium["high"]) + d))
+    return dict(type="range", title="Where you could start", rowName="Path", valueFmt="signedUsdK", rangeName="80% range",
+                subtitle="First-job salary compared with similar grads (same major and graduation year)",
+                ref=dict(label="Similar grads", value=0), rows=[row("If nothing changes", 0), row("With these moves", gain)],
+                note="Dot: the expected salary. Line: the range 8 in 10 people like you land in. Patterns from past alumni, not guarantees.")
 
 
 def reply_for(conversation, messages, attachments):
@@ -338,14 +377,16 @@ def reply_for(conversation, messages, attachments):
     merge(draft, resolve(new, draft))
     changed = json.dumps(draft, sort_keys=True) != before
     kind, reply = next_reply(draft, new, changed)
+    reply, charts = reply if kind == "advice" else (reply, [])
     save_draft(conversation, draft)
     known = sum(draft.get(k) is not None for k in REQUIRED) + len(draft["experiences"]) + len(draft["courses"])
     log_event(conversation, kind, started, model, any(a["type"].startswith("audio/") for a in attachments), known)
-    return reply
+    return reply, charts
 
 
 def next_reply(draft, new, changed):
-    """What Ann says next, from the merged draft, and what kind of turn it was: ask, read back, or advise."""
+    """What Ann says next, from the merged draft, and what kind of turn it was: ask, read back, or advise
+    (advice comes as its text and the charts that go with it)."""
     heard = f'I heard: "{new["transcript"].strip()}" ' if new.get("transcript") else ""
     missing = [label for k, label in REQUIRED.items() if draft.get(k) is None]
     if missing:
@@ -377,11 +418,12 @@ def enter_page():
     if os.path.exists(prebuilt):
         return open(prebuilt).read()
     raw = open(os.path.join(HERE, "page.html")).read()   # same assembly as the end of build.py
-    head = re.sub(r"<title>.*?</title>\n", "", raw.split('<header class="nav">')[0])
+    head = raw.split('<header class="nav">')[0].split("</title>\n", 1)[1]   # enter.html has its own doctype, metas and title
     d0 = raw.index("<!-- Crayon collage filters.")
     defs = raw[d0:raw.index("</svg>", d0) + len("</svg>")]
     page = open(os.path.join(HERE, "enter.html")).read()
-    for k, v in {"HEAD": head, "DEFS": defs, "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
+    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": open(os.path.join(HERE, "charts.js")).read(),
+                 "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
         page = page.replace("{{" + k + "}}", v)
     return page
 
@@ -412,8 +454,8 @@ class Handler(BaseHTTPRequestHandler):
         req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         try:
             if self.path == "/api/ann":
-                reply = reply_for(req["conversation"], req["messages"], req.get("attachments", []))
-                self.send(200, json.dumps({"reply": reply}).encode(), "application/json")
+                reply, charts = reply_for(req["conversation"], req["messages"], req.get("attachments", []))
+                self.send(200, json.dumps({"reply": reply, "charts": charts}).encode(), "application/json")
             elif self.path == "/api/voice":
                 key = os.getenv("ELEVENLABS_API_KEY")
                 if not key:

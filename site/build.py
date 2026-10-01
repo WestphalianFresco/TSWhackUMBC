@@ -890,11 +890,11 @@ def build():
     open(OUT, "w").write(page)
     print(f"built {os.path.relpath(OUT)}: {len(used)} charts, {len(page) / 1024:.0f} KB")
 
-    # the "Free consultation" page (Advisor Ann) shares the main page's fonts, styles and crayon filters
-    head = re.sub(r"<title>.*?</title>\n", "", raw.split('<header class="nav">')[0])
+    # the "Free consultation" page (Advisor Ann) shares the main page's fonts, styles, crayon filters and chart renderer
+    head = raw.split('<header class="nav">')[0].split("</title>\n", 1)[1]   # enter.html has its own doctype, metas and title
     d0 = raw.index("<!-- Crayon collage filters."); defs = raw[d0:raw.index("</svg>", d0) + len("</svg>")]   # the same crayon filters
     enter = open(os.path.join(HERE, "enter.html")).read()
-    for k, v in {"HEAD": head, "DEFS": defs, "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
+    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": subs["CHARTS_JS"], "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
         enter = enter.replace("{{" + k + "}}", v)
     open(OUT_ENTER, "w").write(enter)
     print(f"built {os.path.relpath(OUT_ENTER)}")

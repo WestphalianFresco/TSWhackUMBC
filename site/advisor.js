@@ -8,10 +8,12 @@
  */
 
 /* ── Ann's brain ───────────────────────────────────────────────────────────
- * askAnn({ messages, attachments, conversation }) resolves with Ann's reply as plain text.
+ * askAnn({ messages, attachments, conversation }) resolves with Ann's reply: { reply, charts }.
  *   messages:     the whole conversation so far, oldest first: [{ role: "user" | "ann", text }]
  *   attachments:  files sent with the latest message: [{ name, type, size, dataUrl }]
  *   conversation: bumped by ↻, so the server starts a fresh profile for a restarted chat
+ *   reply:        what she says, as plain text
+ *   charts:       chart specs for charts.js (with her advice: "Where you line up" and more), drawn under it
  * The page asks site/ann_server.py (POST /api/ann), which holds the Gemini key and runs the advisor
  * (never put a key in this page: anyone who opens it can read it). Opened without that server,
  * for example the built file from disk, Ann says her brain isn't connected.
@@ -27,10 +29,10 @@ async function askAnn({ messages, attachments, conversation = 0 }) {
       body: JSON.stringify({ conversation: annConversation, messages, attachments }),
     });
   } catch {
-    return "My brain isn't connected yet. Soon I'll answer your questions for real. For now, you can attach a file, or head back to explore the findings!";
+    return { reply: "My brain isn't connected yet. Soon I'll answer your questions for real. For now, you can attach a file, or head back to explore the findings!" };
   }
   if (!r.ok) throw new Error(await r.text());   // the chat shows its "something went wrong" line
-  return (await r.json()).reply;
+  return r.json();
 }
 
 /* ── Ann's voice ──────────────────────────────────────────────────────────
@@ -161,8 +163,9 @@ const annVoice = (() => {
     return el;
   }
 
-  // Ann's reply types out like a stream (a click finishes it), is spoken, and gets a replay button
-  function annSays(text) {
+  // Ann's reply types out like a stream (a click finishes it), is spoken, and gets a replay button;
+  // the charts she sends with it draw themselves in underneath once the text is out
+  function annSays(text, charts = []) {
     const li = bubble('ann'), el = li.querySelector('.text');
     messages.push({ role: 'ann', text });
     speak(text);
@@ -171,10 +174,24 @@ const annVoice = (() => {
     replay.setAttribute('aria-label', 'Play this message out loud');
     replay.addEventListener('click', () => { if (!voiceOn) setVoice(true); speak(text); });
     li.querySelector('.meta').append(replay);
-    if (reduce) { el.textContent = text; return Promise.resolve(); }
+    const showCharts = () => {
+      if (!charts?.length || !window.successCharts) return;
+      li.classList.add('wide');
+      const box = document.createElement('div');
+      box.className = 'ann-charts';
+      li.querySelector('.meta').before(box);
+      for (const spec of charts) {
+        const card = document.createElement('figure'), chart = document.createElement('div');
+        card.className = 'ann-chart'; chart.className = 'chart';
+        card.append(chart);
+        box.append(card);
+        window.successCharts.mount(chart, spec, { play: true });
+      }
+    };
+    if (reduce) { el.textContent = text; showCharts(); scrollDown(); return Promise.resolve(); }
     return new Promise(done => {
       let i = 0;
-      const finish = () => { clearInterval(t); el.textContent = text; li.removeEventListener('click', finish); scrollDown(); done(); };
+      const finish = () => { clearInterval(t); el.textContent = text; li.removeEventListener('click', finish); showCharts(); scrollDown(); done(); };
       const t = setInterval(() => { el.textContent = text.slice(0, ++i); scrollDown(); if (i >= text.length) finish(); }, 16);
       li.addEventListener('click', finish);
     });
@@ -233,12 +250,12 @@ const annVoice = (() => {
     typing.querySelector('.text').innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
     let reply;
     try { reply = await askAnn({ messages: messages.slice(), attachments, conversation: session }); }
-    catch { reply = 'Sorry, something went wrong on my side. Try again in a moment.'; }
+    catch { reply = { reply: 'Sorry, something went wrong on my side. Try again in a moment.' }; }
     if (mine !== session) return;   // the chat was restarted while Ann was thinking
     typing.remove();
     busy = false;
     status('Online');
-    await annSays(String(reply || '…'));
+    await annSays(String(reply.reply || '…'), reply.charts);
     syncSend();
     box.focus({ preventScroll: true });
   }
