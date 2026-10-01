@@ -1,12 +1,13 @@
 """Build the Success Metrics page from analysis.py.
 
-    python site/build.py        ->  site/dist/success-metrics.html  (+ enter-my-data.html)
+    python site/build.py        ->  public/index.html  (+ public/enter-my-data.html)
 
 Every number comes from the same compute_* results app.py shows. Each function
 in CHARTS turns those results into a JSON spec for one chart type in charts.js;
 page.html places it with {{CELL:<name>|<code shown in the cell>}}, optionally
 followed by caption HTML and {{/CELL}} to put that text inside the chart's card. The finished
-page is a single file: charts.js and the chart data are inlined.
+page is a single file: charts.js and the chart data are inlined. public/ is what Vercel serves
+as static files, so commit the rebuilt pages.
 """
 import base64
 import json
@@ -23,8 +24,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import analysis as a  # noqa: E402
 
-OUT = os.path.join(HERE, "dist", "success-metrics.html")
-OUT_ENTER = os.path.join(HERE, "dist", "enter-my-data.html")
+OUT = os.path.join(os.path.dirname(HERE), "public", "index.html")
+OUT_ENTER = os.path.join(os.path.dirname(HERE), "public", "enter-my-data.html")
 
 
 def box(values):

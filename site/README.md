@@ -3,10 +3,14 @@
 A one-page summary of `analysis.py`, with animated SVG charts in place of matplotlib screenshots.
 
 ```
-python site/build.py        # -> site/dist/success-metrics.html (single file, no dependencies)
+python site/build.py        # -> public/index.html (single file, no dependencies) and public/enter-my-data.html
 ```
 
-Run it from a branch that has `analysis.py` and `data/*.csv`. Every number comes from the same `compute_*` results `app.py` shows.
+Run it from a branch that has `analysis.py` and `data/*.csv`. Every number comes from the same `compute_*` results `app.py` shows. On Windows, set the environment variable `PYTHONUTF8=1` first (the sources are UTF-8).
+
+## Deploying
+
+Every push to GitHub deploys to the Vercel project **successmatrixdashboard** (`main` goes to production, other branches get a preview). Vercel serves `public/` as static files and sends everything else to Advisor Ann's server, `site/ann_server.py` (named in the root `pyproject.toml`, which also lists her dependencies; `vercel.json` gives her 120 seconds). So commit the rebuilt pages in `public/`. `site/make_vercel.py` builds the same site as a folder for a manual `npx vercel deploy`.
 
 | File | What it holds |
 | --- | --- |

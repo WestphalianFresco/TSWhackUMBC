@@ -3,16 +3,19 @@
     python site/make_vercel.py
     npx vercel deploy site/vercel_app --prod
 
-It first runs build.py, so the pages match the current page.html, charts and advisor.js, then collects:
-public/            every page in site/dist; success-metrics.html is also index.html (the home page), and
-                   enter-my-data.html is Advisor Ann's chat, which the home page links to
-ann_server.py      Ann's backend; pyproject.toml names its Handler as the one Python entrypoint, which answers
-advisor.py         /api/ann, /api/voice and /api/stats (dependencies pinned there too)
-vercel.json        gives that function 120 seconds
+Pushes to GitHub already deploy the repository itself (pyproject.toml and vercel.json at the root); this is
+the manual route, from a branch Vercel doesn't deploy to production. It first runs build.py, so the pages
+match the current page.html, charts and advisor.js, then collects:
+public/            every page in public/ (index.html is the home page; enter-my-data.html is Advisor Ann's chat)
+ann_server.py      Ann's backend; pyproject.toml (the root one, entrypoint moved to this flat layout) names its
+advisor.py         Handler as the one Python entrypoint, which answers /api/ann, /api/voice and /api/stats
+vercel.json        the root one: 120 seconds for that function (a cold start learns from the data for ~10 s, then
+                   Gemini may fall through its busy models at 20 s each), and the old page address redirected
 It never contains .env or data/: on Vercel the keys are project environment variables and the data comes from
 Tiger Data. The folder is rebuilt from scratch each run, so edit the originals, not the copies.
 """
 import glob
+import json
 import os
 import shutil
 import subprocess
@@ -26,30 +29,14 @@ from ann_server import selfcheck  # noqa: E402  (light import: the data is only 
 
 selfcheck()   # a build never ships course-matching rules that are broken
 
-# the same versions as the local venv the pipeline was tested with
-PYPROJECT = """[project]
-name = "advisor-ann"
-version = "0.1.0"
-requires-python = ">=3.13"
-dependencies = [
-    "pandas==3.0.5",
-    "numpy==2.4.6",
-    "scipy==1.18.1",
-    "statsmodels==0.15.0",
-    "patsy==1.0.3",
-    "SQLAlchemy==2.1.1",
-    "psycopg[binary]==3.3.6",
-    "python-dotenv==1.2.3",
-]
-
-[tool.vercel]
-entrypoint = "ann_server:Handler"
-"""
-# 120 s covers a cold start (~10 s of learning from the data) plus Gemini falling through its busy models (20 s each)
-VERCEL_JSON = """{
-  "functions": { "ann_server.py": { "maxDuration": 120 } }
-}
-"""
+# the root config, with ann_server.py moved from site/ to the top of the bundle
+PYPROJECT = open(os.path.join(ROOT, "pyproject.toml")).read()
+assert 'entrypoint = "site.ann_server:Handler"' in PYPROJECT
+PYPROJECT = PYPROJECT.replace('entrypoint = "site.ann_server:Handler"', 'entrypoint = "ann_server:Handler"')
+config = json.load(open(os.path.join(ROOT, "vercel.json")))
+fn = config["functions"].pop("site/ann_server.py")
+fn.pop("excludeFiles")   # the bundle holds nothing to exclude
+config["functions"]["ann_server.py"] = fn
 
 # start clean, but keep what `vercel link` made: .vercel/ (which project this folder deploys to), and .env.local
 # (Vercel's own OIDC token) with its .gitignore. .vercelignore below keeps every .env* file out of the upload.
@@ -59,15 +46,14 @@ for name in os.listdir(OUT):
     if name not in KEEP:
         path = os.path.join(OUT, name)
         shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
-subprocess.run([sys.executable, os.path.join(HERE, "build.py")], check=True)   # fresh site/dist
+subprocess.run([sys.executable, os.path.join(HERE, "build.py")], check=True)   # fresh public/
 os.makedirs(os.path.join(OUT, "public"))
-for page in glob.glob(os.path.join(HERE, "dist", "*.html")):
+for page in glob.glob(os.path.join(ROOT, "public", "*.html")):
     shutil.copy(page, os.path.join(OUT, "public"))
-shutil.copy(os.path.join(HERE, "dist", "success-metrics.html"), os.path.join(OUT, "public", "index.html"))
 shutil.copy(os.path.join(HERE, "ann_server.py"), OUT)
 shutil.copy(os.path.join(ROOT, "advisor", "advisor.py"), OUT)
 open(os.path.join(OUT, "pyproject.toml"), "w").write(PYPROJECT)
-open(os.path.join(OUT, "vercel.json"), "w").write(VERCEL_JSON)
+open(os.path.join(OUT, "vercel.json"), "w").write(json.dumps(config, indent=2) + "\n")
 open(os.path.join(OUT, ".python-version"), "w").write("3.13\n")   # the version the pipeline was tested on
 open(os.path.join(OUT, ".vercelignore"), "w").write(".env*\n")
 

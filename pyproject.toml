@@ -1,0 +1,22 @@
+# How Vercel (project successmatrixdashboard) builds this repository from GitHub: the pages in public/ are
+# served as static files, and Advisor Ann's server answers everything else (/api/ann, /api/voice, /api/stats).
+# These are only Ann's runtime dependencies; the Streamlit dashboard keeps its own requirements.txt.
+[project]
+name = "success-metrics"
+version = "0.1.0"
+requires-python = "~=3.13.0"   # the version the advisor pipeline was tested on
+dependencies = [
+    "pandas==3.0.5",
+    "numpy==2.4.6",
+    "scipy==1.18.1",
+    "statsmodels==0.15.0",
+    "patsy==1.0.3",
+    "SQLAlchemy==2.1.1",
+    "psycopg[binary]==3.3.6",
+    "python-dotenv==1.2.3",
+]
+
+[tool.vercel]
+# without this Vercel takes app.py (the Streamlit dashboard, not a web server) as the entrypoint and the build fails.
+# Vercel loads the file by its path, so the folder name doesn't clash with Python's own site module.
+entrypoint = "site.ann_server:Handler"
