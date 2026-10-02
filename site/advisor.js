@@ -8,10 +8,12 @@
  */
 
 /* ── Ann's brain ───────────────────────────────────────────────────────────
- * askAnn({ messages, attachments, conversation }) resolves with Ann's reply as plain text.
+ * askAnn({ messages, attachments, conversation }) resolves with Ann's reply: { reply, charts }.
  *   messages:     the whole conversation so far, oldest first: [{ role: "user" | "ann", text }]
  *   attachments:  files sent with the latest message: [{ name, type, size, dataUrl }]
  *   conversation: bumped by ↻, so the server starts a fresh profile for a restarted chat
+ *   reply:        what she says, as plain text
+ *   charts:       chart specs for charts.js (with her advice: "Where you line up" and more), drawn under it
  * The page asks site/ann_server.py (POST /api/ann), which holds the Gemini key and runs the advisor
  * (never put a key in this page: anyone who opens it can read it). Opened without that server,
  * for example the built file from disk, Ann says her brain isn't connected.
@@ -27,10 +29,10 @@ async function askAnn({ messages, attachments, conversation = 0 }) {
       body: JSON.stringify({ conversation: annConversation, messages, attachments }),
     });
   } catch {
-    return "My brain isn't connected yet. Soon I'll answer your questions for real. For now, you can attach a file, or head back to explore the findings!";
+    return { reply: "My brain isn't connected yet. Soon I'll answer your questions for real. For now, you can attach a file, or head back to explore the findings!" };
   }
   if (!r.ok) throw new Error(await r.text());   // the chat shows its "something went wrong" line
-  return (await r.json()).reply;
+  return r.json();
 }
 
 /* ── Ann's voice ──────────────────────────────────────────────────────────
@@ -161,8 +163,9 @@ const annVoice = (() => {
     return el;
   }
 
-  // Ann's reply types out like a stream (a click finishes it), is spoken, and gets a replay button
-  function annSays(text) {
+  // Ann's reply types out like a stream (a click finishes it), is spoken, and gets a replay button;
+  // the charts she sends with it draw themselves in underneath once the text is out
+  function annSays(text, charts = []) {
     const li = bubble('ann'), el = li.querySelector('.text');
     messages.push({ role: 'ann', text });
     speak(text);
@@ -171,10 +174,24 @@ const annVoice = (() => {
     replay.setAttribute('aria-label', 'Play this message out loud');
     replay.addEventListener('click', () => { if (!voiceOn) setVoice(true); speak(text); });
     li.querySelector('.meta').append(replay);
-    if (reduce) { el.textContent = text; return Promise.resolve(); }
+    const showCharts = () => {
+      if (!charts?.length || !window.successCharts) return;
+      li.classList.add('wide');
+      const box = document.createElement('div');
+      box.className = 'ann-charts';
+      li.querySelector('.meta').before(box);
+      for (const spec of charts) {
+        const card = document.createElement('figure'), chart = document.createElement('div');
+        card.className = 'ann-chart'; chart.className = 'chart';
+        card.append(chart);
+        box.append(card);
+        window.successCharts.mount(chart, spec, { play: true });
+      }
+    };
+    if (reduce) { el.textContent = text; showCharts(); scrollDown(); return Promise.resolve(); }
     return new Promise(done => {
       let i = 0;
-      const finish = () => { clearInterval(t); el.textContent = text; li.removeEventListener('click', finish); scrollDown(); done(); };
+      const finish = () => { clearInterval(t); el.textContent = text; li.removeEventListener('click', finish); showCharts(); scrollDown(); done(); };
       const t = setInterval(() => { el.textContent = text.slice(0, ++i); scrollDown(); if (i >= text.length) finish(); }, 16);
       li.addEventListener('click', finish);
     });
@@ -210,6 +227,7 @@ const annVoice = (() => {
     text = text.trim();
     if (busy || (!text && !pending.length)) return;
     busy = true;
+    const mine = session;   // a restart (↻ or a sample profile) while this is in flight drops it
     const files = pending; pending = []; renderTray();
     box.value = ''; autosize(); syncSend();
     $('suggest')?.remove();
@@ -223,21 +241,21 @@ const annVoice = (() => {
       files.forEach(p => wrap.append(attachmentView(p.file, p.url)));
       li.querySelector('.bubble').append(wrap);
       for (const p of files) attachments.push({ name: p.file.name, type: p.file.type || 'application/octet-stream', size: p.file.size, dataUrl: await readFile(p.file) });
+      if (mine !== session) return;
     }
     messages.push({ role: 'user', text });
     status('Thinking…');
     const typing = bubble('ann');
     typing.classList.add('typing');
     typing.querySelector('.text').innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
-    const mine = session;
     let reply;
     try { reply = await askAnn({ messages: messages.slice(), attachments, conversation: session }); }
-    catch { reply = 'Sorry, something went wrong on my side. Try again in a moment.'; }
+    catch { reply = { reply: 'Sorry, something went wrong on my side. Try again in a moment.' }; }
     if (mine !== session) return;   // the chat was restarted while Ann was thinking
     typing.remove();
     busy = false;
     status('Online');
-    await annSays(String(reply || '…'));
+    await annSays(String(reply.reply || '…'), reply.charts);
     syncSend();
     box.focus({ preventScroll: true });
   }
@@ -275,8 +293,8 @@ const annVoice = (() => {
     log.append(s);
     scrollDown();
   }
-  // ↻ starts a fresh conversation: stop her voice, clear the chat and the file tray, greet again
-  $('restartBtn').addEventListener('click', () => {
+  // a fresh conversation: stop her voice, clear the chat and the file tray (↻ then greets again)
+  function reset() {
     session++;
     annVoice.stop(); talking(false);
     busy = false;
@@ -287,8 +305,118 @@ const annVoice = (() => {
     box.value = ''; autosize();
     log.replaceChildren();
     status('Online');
-    hello();
-    box.focus({ preventScroll: true });
+    document.querySelectorAll('[data-profile]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  }
+  $('restartBtn').addEventListener('click', () => { reset(); hello(); box.focus({ preventScroll: true }); });
+
+  /* ── sample students ─────────────────────────────────────────────────────
+   * Three fictional UMBC Computer Science students. Each card hands Ann an unofficial transcript as a
+   * .txt file, in a fresh conversation so two students never mix. Everything Ann's server asks for is
+   * spelled out: major, track, credits, GPA, entry, first-gen, work hours, every course code with its
+   * grade (codes from the course catalog, IP = in progress) and the student's experiences.
+   */
+  const COURSES = {
+    CMSC201: ['Foundations of Computer Science I', 4], CMSC202: ['Foundations of Computer Science II', 4], CMSC203: ['Discrete Structures', 3],
+    CMSC304: ['Social and Ethical Issues in Computing', 3], CMSC313: ['Computer Organization and Assembly', 3], CMSC331: ['Principles of Programming Languages', 3],
+    CMSC341: ['Data Structures', 4], CMSC345: ['Software Design and Development', 3], CMSC411: ['Computer Architecture', 3],
+    CMSC421: ['Principles of Operating Systems', 3], CMSC425: ['Cloud Computing and Distributed Systems', 3], CMSC426: ['Web Application Architecture', 3],
+    CMSC441: ['Design and Analysis of Algorithms', 3], CMSC447: ['Software Engineering Capstone', 3], CMSC461: ['Database Management Systems', 3],
+    CMSC462: ['Data Warehousing and Pipelines', 3], CMSC471: ['Introduction to Data Mining', 3], CMSC475: ['Data Visualization', 3],
+    CMSC478: ['Introduction to Machine Learning', 3], CMSC479: ['Neural Networks and Deep Learning', 3], CMSC481: ['Natural Language Processing', 3],
+    MATH151: ['Calculus and Analytic Geometry I', 4], MATH152: ['Calculus and Analytic Geometry II', 4], MATH301: ['Linear Algebra', 3],
+    STAT355: ['Probability and Statistics for Computing', 3], PHYS121: ['Introductory Physics I', 4], ENGL100: ['Composition and Rhetoric', 3],
+    ENGL393: ['Technical Communication', 3], HIST103: ['United States History since 1865', 3], ECON101: ['Principles of Microeconomics', 3],
+    ECON102: ['Principles of Macroeconomics', 3], ARTH100: ['Introduction to Art History', 3], BIOL141: ['Foundations of Biology', 4], CHEM101: ['Principles of Chemistry', 4],
+  };
+  const PROFILES = [
+    { level: 'Sophomore', track: 'Cybersecurity', entry: 'Fall 2025', firstGen: true, work: 15,
+      terms: [['Fall 2025', 'CMSC201 B', 'MATH151 B', 'ENGL100 A', 'HIST103 B', 'ARTH100 A'],
+              ['Spring 2026', 'CMSC202 B', 'CMSC203 C', 'MATH152 B', 'ECON101 B', 'PHYS121 W'],
+              ['Fall 2026', 'CMSC313 IP', 'CMSC341 IP', 'STAT355 IP', 'ENGL393 IP']],
+      experiences: [['Student Organization', 'Retriever Cyber Club', 'UMBC', 'Member', 'Fall 2025 to now'],
+                    ['Campus Job', 'Circulation Desk Assistant', 'Albin O. Kuhn Library', 'Employee', 'Fall 2025 to now, 15 hours a week']] },
+    { level: 'Junior', track: 'Software Engineering', entry: 'Fall 2024', firstGen: false, work: 6,
+      terms: [['Fall 2024', 'CMSC201 A', 'MATH151 A', 'ENGL100 B', 'ECON101 A'],
+              ['Spring 2025', 'CMSC202 A', 'CMSC203 B', 'MATH152 B', 'BIOL141 A'],
+              ['Summer 2025', 'HIST103 A', 'ARTH100 A'],
+              ['Fall 2025', 'CMSC313 B', 'CMSC331 A', 'CMSC341 A', 'STAT355 B'],
+              ['Spring 2026', 'CMSC304 A', 'CMSC345 A', 'MATH301 B', 'PHYS121 B'],
+              ['Fall 2026', 'CMSC411 IP', 'CMSC441 IP', 'CMSC461 IP', 'ENGL393 IP']],
+      experiences: [['Internship', 'Software Engineering Intern', 'Northwind Platform Co.', 'Intern', 'Summer 2026'],
+                    ['Student Organization', 'Association for Computing Machinery Student Chapter', 'UMBC', 'Officer', 'Fall 2025 to now'],
+                    ['Hackathon', 'HackUMBC', 'UMBC', 'Participant', 'Fall 2025'],
+                    ['Certification', 'Java Application Developer', 'Brightline Code School', null, 'Spring 2026'],
+                    ['Tutoring', 'CMSC 201 Tutor', 'Department of Computer Science', 'Tutor', 'Spring 2026 to now, 6 hours a week']] },
+    { level: 'Senior', track: 'Data Science', entry: 'Fall 2023', firstGen: true, work: 20,
+      terms: [['Fall 2023', 'CMSC201 B', 'MATH151 C', 'ENGL100 B', 'HIST103 B'],
+              ['Spring 2024', 'CMSC202 C', 'CMSC203 C', 'MATH152 D', 'ECON101 B'],
+              ['Fall 2024', 'CMSC313 C', 'CMSC341 C', 'STAT355 B', 'BIOL141 B', 'CHEM101 W'],
+              ['Spring 2025', 'CMSC331 B', 'CMSC304 A', 'MATH301 C', 'PHYS121 C', 'ECON102 B'],
+              ['Summer 2025', 'ARTH100 A'],
+              ['Fall 2025', 'CMSC411 C', 'CMSC461 B', 'CMSC471 B', 'CMSC426 B', 'ENGL393 A'],
+              ['Spring 2026', 'CMSC421 C', 'CMSC441 C', 'CMSC475 A', 'CMSC478 B', 'CMSC462 B'],
+              ['Fall 2026', 'CMSC447 IP', 'CMSC479 IP', 'CMSC481 IP', 'CMSC425 IP']],
+      experiences: [['Internship', 'Data Analytics Intern', 'National Data Services Agency', 'Intern', 'Summer 2025'],
+                    ['Internship', 'Data Engineering Intern', 'Meridian National Systems', 'Intern', 'Summer 2026'],
+                    ['Undergraduate Research', 'Research Assistant', 'Applied Machine Learning Lab', 'Researcher', 'Spring 2026 to now'],
+                    ['Campus Job', 'Help Desk Technician', 'Division of Information Technology', 'Employee', 'Fall 2024 to now, 20 hours a week']] },
+  ];
+  const POINTS = { A: 4, B: 3, C: 2, D: 1, F: 0 };
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  PROFILES.forEach((p, i) => {
+    let points = 0, gpaCredits = 0, earned = 0;
+    const terms = p.terms.map(([term, ...courses]) => {
+      let tp = 0, tc = 0;
+      const rows = courses.map(c => {
+        const [id, grade] = c.split(' '), [title, credits] = COURSES[id];
+        if (grade in POINTS) { tp += POINTS[grade] * credits; tc += credits; if (grade !== 'F') earned += credits; }
+        return `  ${id.replace(/^[A-Z]+/, '$& ').padEnd(10)}${title.padEnd(42)}${credits.toFixed(1).padStart(4)}   ${grade}`;
+      });
+      points += tp; gpaCredits += tc;
+      return tc ? `${term}\n${rows.join('\n')}\n  Term GPA: ${(tp / tc).toFixed(2)}` : `${term} (in progress)\n${rows.join('\n')}`;
+    });
+    p.gpa = (points / gpaCredits).toFixed(2);
+    p.earned = earned;
+    p.internships = p.experiences.filter(e => e[0] === 'Internship' || e[0] === 'Co-op').length;
+    p.text = [
+      'UNIVERSITY OF MARYLAND, BALTIMORE COUNTY (UMBC)',
+      'Unofficial Transcript. SAMPLE: a fictional student made up for the Advisor Ann demo.',
+      '',
+      `Student: Sample Student ${i + 1} (Profile ${i + 1})`,
+      'Major: Computer Science, B.S.',
+      `Track: ${p.track}`,
+      `Entered UMBC: ${p.entry}, First-Time Freshman`,
+      `Class level: ${p.level}`,
+      `Credits earned: ${p.earned}`,
+      `Cumulative GPA: ${p.gpa}`,
+      `First-generation college student: ${p.firstGen ? 'Yes' : 'No'}`,
+      `Work hours per week: ${p.work}`,
+      '',
+      'COURSEWORK (grades: A B C D F, W = withdrew, IP = in progress)',
+      terms.join('\n\n'),
+      '',
+      "EXPERIENCE (from the student's resume)",
+      ...p.experiences.map(([type, name, org, role, when]) => `  ${type}: ${name}, ${org}${role ? `, ${role}` : ''}, ${when}`),
+      '',
+    ].join('\n');
+  });
+
+  const samples = document.querySelector('.samples');
+  PROFILES.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'profile'; b.dataset.profile = i; b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = `<b>Profile ${i + 1}</b><span class="line">${p.level}<span class="more"> · ${p.track}</span></span>`   // phones keep only level and GPA
+      + `<span class="line">GPA ${p.gpa}<span class="more"> · ${p.earned} credits</span></span>`
+      + `<span class="line more">${p.internships ? plural(p.internships, 'internship') : 'No internships yet'}</span>`
+      + '<span class="go">Give Ann this transcript →</span>';
+    b.setAttribute('aria-label', `Profile ${i + 1}: ${p.level}, ${p.track} track, GPA ${p.gpa}. Send this sample transcript to Ann.`);
+    b.addEventListener('click', () => {
+      reset();
+      b.setAttribute('aria-pressed', 'true');
+      addFiles([new File([p.text], `profile-${i + 1}-transcript.txt`, { type: 'text/plain' })]);
+      send(`Here's my unofficial transcript (Profile ${i + 1}). Can you analyze it?`);
+    });
+    samples.append(b);
   });
 
   hello();

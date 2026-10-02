@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "site/ann_server.py": {
+      "maxDuration": 120,
+      "excludeFiles": "{data/**,*.ipynb}"
+    }
+  },
+  "redirects": [
+    { "source": "/success-metrics.html", "destination": "/", "permanent": true }
+  ]
+}

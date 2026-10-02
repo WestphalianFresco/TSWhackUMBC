@@ -10,7 +10,7 @@
   .adv { --ink: #2B2622; --ink-2: #4A433C; --muted: #7d766c; --white: #FFFDF7; --paper: #F6EFE1; --brick: #C8553D; --gold: #F2B51D; --you: #FBE7B0; --sky: #A8D2EC;
     --hand: "Patrick Hand", "Comic Sans MS", "Marker Felt", cursive; --sketch: "Cabin Sketch", "Marker Felt", "Comic Sans MS", cursive;
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .55  0 0 0 0 .5  0 0 0 0 .42  0 0 0 .35 -.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    margin: 0; height: 100svh; overflow: hidden; background: var(--grain), var(--paper); color: var(--ink); color-scheme: light; font: 400 18px/1.4 var(--hand); }
+    margin: 0; height: 100svh; overflow: hidden; background: var(--grain), var(--paper); color: var(--ink); color-scheme: light; font: 400 19px/1.4 var(--hand); }
   .adv :focus-visible { outline: 2.5px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
   .adv button { font: inherit; color: inherit; }
   .app { height: 100%; max-width: 1160px; margin-inline: auto; padding: 16px clamp(12px, 3vw, 24px); box-sizing: border-box; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; }
@@ -24,13 +24,13 @@
   .namecard { position: relative; margin: 0 16px 18px; padding: 16px 16px 14px; background: var(--white); border: 2.5px solid var(--ink); border-radius: 6px; transform: rotate(-1.5deg);
     box-shadow: 3px 4px 0 rgba(43, 38, 34, .15); display: flex; flex-direction: column; gap: 4px; }
   .namecard::before { content: ""; position: absolute; top: -12px; left: 50%; width: 84px; height: 22px; transform: translateX(-50%) rotate(3deg); background: rgba(242, 181, 29, .6); }
-  .namecard h1 { margin: 0; font: 700 30px/1.05 var(--sketch); }
-  .namecard .role { color: var(--ink-2); font-size: 17px; }
+  .namecard h1 { margin: 0; font: 700 32px/1.05 var(--sketch); }
+  .namecard .role { color: var(--ink-2); font-size: 18px; }
   .namecard .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; }
-  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; color: var(--ink-2); }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 17px; color: var(--ink-2); }
   .status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #4FB06A; border: 1.5px solid var(--ink); }
 
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border: 2px solid var(--ink); border-radius: 999px; background: var(--white); font-size: 16px; cursor: pointer; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border: 2px solid var(--ink); border-radius: 999px; background: var(--white); font-size: 17px; cursor: pointer; }
   .chip[aria-pressed="false"] { background: #e9e2d3; color: var(--ink-2); }
   .chip:disabled { opacity: .5; cursor: default; }
 
@@ -38,7 +38,7 @@
   .chat { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; overflow: hidden; background: var(--white); border: 3px solid var(--ink); border-radius: 20px 16px 22px 18px; box-shadow: 4px 5px 0 rgba(43, 38, 34, .12); }
   .chat-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 2.5px dashed var(--ink); }
   .chat-head .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  .chat-head .who b { font: 700 24px/1.1 var(--sketch); font-weight: 700; }
+  .chat-head .who b { font: 700 26px/1.1 var(--sketch); font-weight: 700; }
   .chat-head .mobile-only { display: none; }
   .close { display: inline-grid; place-items: center; width: 38px; height: 38px; border: 2px solid var(--ink); border-radius: 50%; background: var(--white); font-size: 22px; line-height: 1; text-decoration: none; color: var(--ink); cursor: pointer; }
   .close:hover { background: #f3ecdc; }
@@ -53,12 +53,12 @@
   .msg.you .body { align-items: flex-end; }
   .bubble { max-width: 100%; box-sizing: border-box; padding: 9px 14px 10px; border: 2.5px solid var(--ink); border-radius: 18px 20px 18px 5px; background: var(--white); box-shadow: 2px 3px 0 rgba(43, 38, 34, .1); }
   .msg.you .bubble { background: var(--you); border-radius: 20px 18px 5px 18px; }
-  .bubble .text { margin: 0; font-size: clamp(1.08rem, 1.7vw, 1.22rem); white-space: pre-wrap; overflow-wrap: anywhere; }
-  .meta { display: flex; gap: 10px; align-items: center; padding-inline: 6px; font-size: 14px; color: var(--muted); }
-  .replay { padding: 0; border: 0; background: none; color: var(--brick); cursor: pointer; font-size: 14px; }
+  .bubble .text { margin: 0; font-size: clamp(1.15rem, 1.8vw, 1.32rem); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .meta { display: flex; gap: 10px; align-items: center; padding-inline: 6px; font-size: 15px; color: var(--muted); }
+  .replay { padding: 0; border: 0; background: none; color: var(--brick); cursor: pointer; font-size: 15px; }
   .replay:hover { text-decoration: underline; }
   .files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-  .file { min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 2px dashed var(--ink-2); border-radius: 10px; background: rgba(255, 253, 247, .7); font-size: 15px; max-width: 100%; }
+  .file { min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 2px dashed var(--ink-2); border-radius: 10px; background: rgba(255, 253, 247, .7); font-size: 16px; max-width: 100%; }
   .file.pic { padding: 4px; }
   .file img { display: block; max-height: 150px; max-width: min(240px, 100%); height: auto; border-radius: 6px; }
   .files .file.pic { max-width: 100%; }
@@ -68,8 +68,15 @@
   .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-2); animation: bounce 1s infinite ease-in-out; }
   .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
   .suggest { display: flex; flex-wrap: wrap; gap: 8px; padding-left: 52px; }
-  .suggest button { padding: 6px 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--white); font-size: 17px; cursor: pointer; box-shadow: 2px 2px 0 rgba(43, 38, 34, .12); }
+  .suggest button { padding: 6px 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--white); font-size: 18px; cursor: pointer; box-shadow: 2px 2px 0 rgba(43, 38, 34, .12); }
   .suggest button:hover { background: var(--you); }
+  /* charts Ann sends with her advice (drawn by charts.js): her message widens to hold them, one card each */
+  .msg.wide { width: 100%; max-width: min(100%, 860px); }
+  .msg.wide .body { flex: 1; }
+  .ann-charts { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+  .ann-chart { margin: 0; background: var(--white); border: 2.5px solid var(--ink); border-radius: 16px 14px 18px 14px; box-shadow: 2px 3px 0 rgba(43, 38, 34, .1);
+    font: 400 17px/1.5 var(--sans); overflow: hidden; }   /* the site's chart type, so charts read the same on both pages */
+  .ann-chart .chart { padding: 14px 16px 12px; }
 
   /* composer: files waiting to send, then the message box */
   .composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 2.5px dashed var(--ink); }
@@ -82,9 +89,9 @@
   .icon-btn { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border: 2.5px solid var(--ink); border-radius: 14px; background: var(--white); cursor: pointer; }
   .icon-btn:hover { background: #f3ecdc; }
   .icon-btn svg { width: 24px; height: 24px; }
-  .row-in textarea { flex: 1; min-width: 0; resize: none; height: 48px; max-height: 160px; padding: 11px 14px; box-sizing: border-box; border: 2.5px solid var(--ink); border-radius: 14px; background: var(--white); font: 400 19px/1.3 var(--hand); color: var(--ink); }
+  .row-in textarea { flex: 1; min-width: 0; resize: none; height: 48px; max-height: 160px; padding: 11px 14px; box-sizing: border-box; border: 2.5px solid var(--ink); border-radius: 14px; background: var(--white); font: 400 20px/1.3 var(--hand); color: var(--ink); }
   .row-in textarea::placeholder { color: var(--muted); }
-  .send { flex: none; height: 48px; padding: 0 20px; border: 2.5px solid var(--ink); border-radius: 14px; background: var(--gold); font-size: 20px !important; cursor: pointer; box-shadow: 2px 3px 0 rgba(43, 38, 34, .15); }
+  .send { flex: none; height: 48px; padding: 0 20px; border: 2.5px solid var(--ink); border-radius: 14px; background: var(--gold); font-size: 21px !important; cursor: pointer; box-shadow: 2px 3px 0 rgba(43, 38, 34, .15); }
   .send:disabled { background: #eee2bd; color: var(--muted); cursor: default; box-shadow: none; }
 
   .chip.nudge { background: var(--gold); color: var(--ink); animation: nudge 1.2s ease-in-out infinite alternate; }   /* the browser needs a tap before Ann can speak */
@@ -104,14 +111,45 @@
   @keyframes nudge { to { transform: scale(1.06); } }
   @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
 
+  /* sample students: three taped index cards beside the chat; a click hands Ann that transcript */
+  .samples { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; padding: 14px 6px 6px; scrollbar-width: thin; }
+  .samples h2 { margin: 0; font: 700 28px/1.05 var(--sketch); }
+  .samples .hint { margin: -8px 0 2px; font-size: 17px; color: var(--ink-2); }
+  .profile { position: relative; flex: none; display: flex; flex-direction: column; gap: 1px; padding: 16px 14px 11px; text-align: left; cursor: pointer;
+    background: var(--white); border: 2.5px solid var(--ink); border-radius: 6px; box-shadow: 3px 4px 0 rgba(43, 38, 34, .15);
+    transform: rotate(var(--tilt, -1.2deg)); transition: transform .2s, background .2s; }
+  .profile:nth-of-type(2) { --tilt: 1deg; } .profile:nth-of-type(3) { --tilt: -.6deg; }
+  .profile::before { content: ""; position: absolute; top: -11px; left: 50%; width: 64px; height: 20px; transform: translateX(-50%) rotate(-3deg); background: rgba(242, 181, 29, .6); }
+  .profile:hover { transform: rotate(0) translateY(-3px); }
+  .profile[aria-pressed="true"] { background: var(--you); }
+  .profile b { font: 700 25px/1.1 var(--sketch); }
+  .profile .line { font-size: 17px; color: var(--ink-2); }
+  .profile .go { margin-top: 5px; font-size: 16px; color: var(--brick); }
+  @media (min-width: 1180px) { .app { max-width: 1480px; grid-template-columns: 280px minmax(0, 1fr) 250px; } }
+  @media (max-width: 1179px) {   /* no room for a third column: the cards line up across the top */
+    .app { grid-template-rows: auto minmax(0, 1fr); }
+    .samples { grid-column: 1 / -1; grid-row: 1; flex-direction: row; align-items: center; gap: 14px; overflow: visible; padding: 10px 4px 2px; }
+    .samples .hint, .profile .go { display: none; }
+    .profile { flex: 1; min-width: 0; padding: 12px 12px 8px; }
+  }
+
   @media (max-width: 880px) {
     .app { grid-template-columns: minmax(0, 1fr); padding: 10px; }
+    .samples h2 { display: none; }
+    .samples { gap: 10px; }
+    .profile { padding: 10px 8px 6px; }
+    .profile b { font-size: 20px; }
+    .profile .line { font-size: 15px; }
+    .profile .more { display: none; }
     .chat-head { gap: 8px; padding: 10px 12px; }
-    .chat-head .who b { font-size: 21px; }
-    .chat-head .chip { padding: 3px 10px; font-size: 15px; }
+    .chat-head .who b { font-size: 22px; }
+    .row-in textarea { font-size: 18px; }   /* the placeholder stays on one line */
+    .chat-head .chip { padding: 3px 10px; font-size: 16px; }
     .portrait { display: none; }
     .chat-head .mobile-only { display: inline-flex; }
     .msg { max-width: 90%; }
+    .msg.wide { max-width: 100%; }
+    .msg.wide .avatar { display: none; }   /* the charts get the room */
     .suggest { padding-left: 0; }
     .wide-only { display: none; }
   }
@@ -227,10 +265,16 @@
       </div>
     </form>
   </main>
+
+  <aside class="samples" aria-labelledby="samplesTitle">
+    <h2 id="samplesTitle">Sample students</h2>
+    <p class="hint">Fictional UMBC CS transcripts. Pick one and Ann analyzes it.</p>
+  </aside>
 </div>
 
 <input type="file" id="fileIn" multiple hidden accept="image/*,audio/*,.pdf,.txt,.csv,.json,.doc,.docx,.md">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script>{{CHARTS_JS}}</script>
 <script>{{ADVISOR_JS}}</script>
 </body>
 </html>

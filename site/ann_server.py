@@ -2,12 +2,13 @@
 
     python site/ann_server.py        ->  open http://localhost:8000
 
-GET  /           the "Enter my data" chat, assembled like build.py does (page.html head + enter.html + advisor.js),
+GET  /           the "Enter my data" chat, assembled like build.py does (page.html head + enter.html + charts.js + advisor.js),
                  so an edit to advisor.js shows up on refresh without rebuilding
-POST /api/ann    {conversation, messages, attachments} -> {reply}
+POST /api/ann    {conversation, messages, attachments} -> {reply, charts}
                  Gemini turns what the student typed, said (audio) or uploaded into fields the advisor understands;
                  the advisor validates them, Ann asks for anything missing, and once the student confirms,
-                 the tested pipeline (not Gemini) produces the advice
+                 the tested pipeline (not Gemini) produces the advice, with charts.js specs drawn under it:
+                 where the student lines up among peers, their top moves, and where they could start
 POST /api/voice  {text} -> audio/mpeg from ElevenLabs; 503 when no key, and the page falls back to the browser voice
 GET  /api/stats  Ann's live usage for the last 24 hours, from the Tiger Data continuous aggregate
 
@@ -35,12 +36,14 @@ from psycopg.types.json import Jsonb
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "advisor"))
+sys.path[:0] = [HERE, os.path.join(ROOT, "advisor")]   # advisor.py sits in ../advisor locally, next to this file on Vercel
 import advisor as adv  # noqa: E402
 
 load_dotenv(os.path.join(ROOT, ".env"))
-# newest Flash first; when one is overloaded (503/429/500) or closed to this key (404), the next one answers
-GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"]
+# newest Flash first; when one is overloaded (503/429/500) or closed to this key (404), the next one answers.
+# 3.1-flash-lite is second because it is fast and almost always up; its habit of guessing course numbers is harmless
+# now that resolve_course() (code, not the model) decides which catalog course a student meant.
+GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.7-flash"]
 ELEVEN_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5")   # the low-latency model, so Ann answers quickly
 REQUIRED = {"major": "your major (Computer Science or Information Systems)", "track": "your track",
             "credits_earned": "how many credits you've earned", "cumulative_gpa": "your cumulative GPA"}
@@ -48,13 +51,27 @@ REQUIRED = {"major": "your major (Computer Science or Information Systems)", "tr
 ELEVEN_VOICE = os.getenv("ELEVENLABS_VOICE_ID", "XrExE9yKIg1WjnnlVkGX")   # Ann's voice, chosen by the team; .env can override
 voiceNote = f"ElevenLabs voice {ELEVEN_VOICE}" if os.getenv("ELEVENLABS_API_KEY") else "no ElevenLabs key: the browser voice is used"
 print(f"Ann's voice: {voiceNote}")
-print("Learning from the data (about 10 seconds)...")
-CTX = adv.build()
-CATALOG = "\n".join(f"{r.course_id}: {r.course_title}" for r in CTX["cat"].itertuples())
-TRACKS = sorted({t for ts in CTX["tracks"].values() for t in ts})
 TIGER_URL = os.getenv("TIGER_URL")
 MEMORY = {}   # drafts when there is no Tiger Data
 _conn, _lock = None, threading.Lock()
+CTX = SCHEMA = INSTRUCTIONS = TITLES = None   # filled by init(): learning from the data takes ~10 s, so once, not at import
+_initLock = threading.Lock()
+
+
+def init():
+    """Learn from the data, make sure Ann's tables exist, and prepare Gemini's schema, once per process:
+    at startup when run locally, on the first request of each Vercel instance."""
+    global CTX, SCHEMA, INSTRUCTIONS, TITLES
+    with _initLock:
+        if CTX is not None:
+            return
+        print("Learning from the data (about 10 seconds)...")
+        ctx = adv.build()
+        if TIGER_URL:
+            ensure_tables()
+        SCHEMA, INSTRUCTIONS = schema_for(ctx), instructions_for(ctx)
+        TITLES = dict(zip(ctx["cat"]["course_id"], ctx["cat"]["course_title"]))
+        CTX = ctx
 
 
 def db(sql, params=()):
@@ -128,50 +145,55 @@ def log_event(conversation, kind, started, model=None, has_audio=None, fields_kn
            [conversation, kind, model, round((time.time() - started) * 1000), has_audio, fields_known])
 
 
-if TIGER_URL:
-    ensure_tables()
-
-
 def nullable(schema):
     return {**schema, "nullable": True}
 
 
-# Gemini may only answer with values that exist in the dataset: every enum below comes from the data itself
-SCHEMA = {
-    "type": "OBJECT",
-    "properties": {
-        "transcript": nullable({"type": "STRING"}),
-        "major": nullable({"type": "STRING", "enum": sorted(CTX["tracks"])}),
-        "track": nullable({"type": "STRING", "enum": TRACKS}),
-        "entry_type": nullable({"type": "STRING", "enum": ["First-Time Freshman", "Transfer"]}),
-        "credits_earned": nullable({"type": "INTEGER"}),
-        "cumulative_gpa": nullable({"type": "NUMBER"}),
-        "is_first_generation": nullable({"type": "BOOLEAN"}),
-        "work_hours_per_week": nullable({"type": "INTEGER"}),
-        "experiences": {"type": "ARRAY", "items": {"type": "OBJECT", "required": ["experience_type"], "properties": {
-            "experience_type": {"type": "STRING", "enum": sorted(CTX["types"])},
-            "organization": nullable({"type": "STRING"}),
-            "role_level": nullable({"type": "STRING"})}}},
-        "courses": {"type": "ARRAY", "items": {"type": "OBJECT", "required": ["course_id"], "properties": {
-            "course_id": {"type": "STRING", "enum": sorted(CTX["cat"]["course_id"])},
-            "grade": nullable({"type": "STRING", "enum": sorted(adv.GRADES)})}}},
-        "unclear": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "confirms_profile": {"type": "BOOLEAN"},
-    },
-    "required": ["experiences", "courses", "unclear", "confirms_profile"],
-}
+def schema_for(ctx):
+    """Gemini may only answer with values that exist in the dataset: every enum below comes from the data itself."""
+    tracks = sorted({t for ts in ctx["tracks"].values() for t in ts})
+    return {
+        "type": "OBJECT",
+        "properties": {
+            "transcript": nullable({"type": "STRING"}),
+            "major": nullable({"type": "STRING", "enum": sorted(ctx["tracks"])}),
+            "track": nullable({"type": "STRING", "enum": tracks}),
+            "entry_type": nullable({"type": "STRING", "enum": ["First-Time Freshman", "Transfer"]}),
+            "credits_earned": nullable({"type": "INTEGER"}),
+            "cumulative_gpa": nullable({"type": "NUMBER"}),
+            "is_first_generation": nullable({"type": "BOOLEAN"}),
+            "work_hours_per_week": nullable({"type": "INTEGER"}),
+            "experiences": {"type": "ARRAY", "items": {"type": "OBJECT", "required": ["experience_type"], "properties": {
+                "experience_type": {"type": "STRING", "enum": sorted(ctx["types"])},
+                "organization": nullable({"type": "STRING"}),
+                "role_level": nullable({"type": "STRING"})}}},
+            "courses": {"type": "ARRAY", "items": {"type": "OBJECT", "required": ["said"], "properties": {
+                "said": {"type": "STRING"},
+                "course_id": nullable({"type": "STRING", "enum": sorted(ctx["cat"]["course_id"])}),
+                "grade": nullable({"type": "STRING", "enum": sorted(adv.GRADES)})}}},
+            "remove": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "unclear": {"type": "ARRAY", "items": {"type": "STRING"}},
+            "confirms_profile": {"type": "BOOLEAN"},
+        },
+        "required": ["experiences", "courses", "remove", "unclear", "confirms_profile"],
+    }
 
-INSTRUCTIONS = f"""You turn what a UMBC computing student types, says in an audio recording, or shows in an uploaded
+
+def instructions_for(ctx):
+    catalog = "\n".join(f"{r.course_id}: {r.course_title}" for r in ctx["cat"].itertuples())
+    return f"""You turn what a UMBC computing student types, says in an audio recording, or shows in an uploaded
 transcript or resume into structured fields for an advising tool. Rules:
 - Fill a field only when the student clearly states it. Never guess; leave anything unknown null.
 - Report only what is NEW in the student's latest message and attachments; the known profile is given for context.
-- Map course names or numbers to a course_id from the catalog below. If you cannot match one confidently,
-  do not invent it: put the student's words in `unclear`.
+- For each course, put the student's own words in `said` exactly as they said them (e.g. "IS 210", "data structures"),
+  and your best matching course_id from the catalog below in `course_id`, or null if unsure. Never change a number.
+- `remove` lists courses or activities the student says are wrong, a mistake, or that they did not take or do,
+  in their words or as course codes.
 - Grades are letters only: A B C D F, W for a withdrawal, IP for a course in progress.
-- If there is audio, write what the student said, word for word, in `transcript`.
+- If there is audio, write what the student said, word for word, in `transcript`; keep every number as spoken.
 - `confirms_profile` is true only when the latest message clearly agrees that the summary Ann just read back is correct.
 Course catalog:
-{CATALOG}"""
+{catalog}"""
 
 
 def gemini_extract(draft, messages, attachments):
@@ -185,21 +207,83 @@ def gemini_extract(draft, messages, attachments):
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {"responseMimeType": "application/json", "responseSchema": SCHEMA,
                                  "temperature": 0}}
-    for model in GEMINI_MODELS:
+    for i, model in enumerate(GEMINI_MODELS):
+        last = i == len(GEMINI_MODELS) - 1
         req = urllib.request.Request(
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
             data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": os.environ["GEMINI_API_KEY"]})
         try:
-            with urllib.request.urlopen(req, timeout=20) as r:
+            with urllib.request.urlopen(req, timeout=15) as r:
                 return json.loads(json.load(r)["candidates"][0]["content"]["parts"][0]["text"]), model
         except urllib.error.HTTPError as e:
-            if e.code not in (404, 429, 500, 503) or model == GEMINI_MODELS[-1]:
+            if e.code not in (404, 429, 500, 503) or last:
                 raise
             print(f"{model} answered {e.code}, trying the next model", file=sys.stderr)
         except (TimeoutError, urllib.error.URLError) as e:   # a model that hangs is as good as a busy one
-            if model == GEMINI_MODELS[-1]:
+            if last:
                 raise
             print(f"{model} timed out ({e}), trying the next model", file=sys.stderr)
+
+
+COURSE_CODE = re.compile(r"\b([A-Za-z]{2,4})\s*-?\s*(\d{3}[A-Za-z]?)\b")
+FILLER = {"class", "course", "the", "and", "for", "with", "intro", "introduction"}
+
+
+def words_match(said, title):
+    """At least half of the student's key words appear in the title (a word may be a prefix: "calc" -> "Calculus")."""
+    words = {w for w in re.findall(r"[a-z]+", said.lower()) if len(w) > 2 and w not in FILLER}
+    tw = re.findall(r"[a-z]+", title.lower())
+    return bool(words) and sum(any(t == w or (len(w) >= 4 and t.startswith(w)) for t in tw) for w in words) / len(words) >= 0.5
+
+
+def resolve_course(said, guess, titles):
+    """Which catalog course the student meant, or None so Ann asks. Code decides, not the model:
+    a course code the student said must exist exactly as said; otherwise the model's guess must share their key words."""
+    code = COURSE_CODE.search(said or "")
+    if code:
+        cid = (code.group(1) + code.group(2)).upper()
+        return cid if cid in titles else None
+    return guess if guess in titles and words_match(said or "", titles[guess]) else None
+
+
+def resolve(new, draft, titles=None):
+    """Swap Gemini's course guesses for code-checked ids; anything unresolved becomes a question for the student."""
+    titles = titles or TITLES
+    courses = []
+    for c in new["courses"]:
+        cid = resolve_course(c["said"], c.get("course_id"), titles)
+        if cid:
+            courses.append({"course_id": cid, "grade": c.get("grade")})
+        elif c["said"] not in new["unclear"]:
+            new["unclear"].append(c["said"])
+    new["courses"] = courses
+    # corrections: "that's wrong", "I never took IS 295", "I'm not a tutor"
+    for r in new["remove"]:
+        cid = resolve_course(r, None, titles) or next(
+            (c["course_id"] for c in draft["courses"] if words_match(r, titles.get(c["course_id"], ""))), None)
+        draft["courses"] = [c for c in draft["courses"] if c["course_id"] != cid]
+        draft["experiences"] = [e for e in draft["experiences"] if not words_match(r, e["experience_type"])]
+    return new
+
+
+def selfcheck():
+    """The rules that decide courses; run before the server starts and before every Vercel build."""
+    t = {"CMSC201": "Foundations of Computer Science I", "CMSC341": "Data Structures", "IS295": "Business Communications for IS",
+         "IS310": "Structured Systems Analysis and Design", "MATH151": "Calculus and Analytic Geometry I",
+         "CMSC441": "Design and Analysis of Algorithms"}
+    assert resolve_course("CMSC 201", None, t) == "CMSC201"
+    assert resolve_course("is310", "IS295", t) == "IS310"               # the number the student said beats the model's guess
+    assert resolve_course("IS 210", "IS295", t) is None                  # a course that doesn't exist is asked about, never swapped
+    assert resolve_course("data structures class", "CMSC341", t) == "CMSC341"
+    assert resolve_course("algorithms", "CMSC441", t) == "CMSC441"
+    assert resolve_course("calc 1", "MATH151", t) == "MATH151"
+    assert resolve_course("intro to programming", "CMSC201", t) is None  # no key word in common: ask instead of guessing
+    draft = {"courses": [{"course_id": "IS295", "grade": "B"}, {"course_id": "IS310", "grade": "B"}],
+             "experiences": [{"experience_type": "Tutoring"}, {"experience_type": "Internship"}]}
+    new = resolve({"courses": [{"said": "IS 210", "course_id": "IS295", "grade": "B"}], "remove": ["IS 295", "I'm not a tutor"],
+                   "unclear": []}, draft, t)
+    assert new["courses"] == [] and new["unclear"] == ["IS 210"]
+    assert draft["courses"] == [{"course_id": "IS310", "grade": "B"}] and draft["experiences"] == [{"experience_type": "Internship"}]
 
 
 def merge(draft, new):
@@ -229,7 +313,8 @@ def ordinal(n):
 
 
 def advice(d):
-    """Only numbers from the tested pipeline: the advisor's own progress, projection and ranked levers."""
+    """Only numbers from the tested pipeline: the advisor's own progress, projection and ranked levers,
+    said in words and drawn in the charts that go with them."""
     r = adv.advise(d, CTX)
     s, p, f, st = r["student"], r["progress"], r["future"], r["strategy"]
     behind = p["vs_peers"][p["vs_peers"]["status"] == "behind"]
@@ -240,28 +325,68 @@ def advice(d):
     moves = " ".join(f"{i}) {lever} (about {gain:+,.0f} dollars" + (f", {-months:.1f} months faster" if months < -0.05 else "") + ")."
                      for i, (lever, gain, months) in enumerate(zip(rec["lever"], rec["salary gain ($)"], rec["months to first job"]), 1))
     risk = f" Heads-up: {st['risks'][0]}" if st["risks"] else ""
-    return (f"Thanks! Compared with {p['peers_n']} current {s['major']} {s['class_level']}s, {standing}. "
+    text = (f"Thanks! Here's where you line up: compared with {p['peers_n']} current {s['major']} {s['class_level']}s, {standing}. "
             f"If nothing changes, alumni like you started about {abs(prem):,.0f} dollars "
             f"{'above' if prem >= 0 else 'below'} similar grads. My top moves for you: {moves}{risk} "
             "These are patterns from past alumni, not guarantees. Tell me if anything changes and I'll update your plan.")
+    return text, [lineup_chart(s, p), moves_chart(rec), outlook_chart(f["projection"]["premium"], rec)]
+
+
+# ---------------------------------------------------------------- the charts Ann sends (types in charts.js)
+
+def lineup_chart(s, p):
+    """Where you line up: the student's percentile among current peers on each measure progress() compares."""
+    series = {"typical": 0, "behind": 1, "ahead": 2}   # the site's blue, orange and green; a context row (no score) is grey
+    value = lambda metric, v: f"{v:.2f}" if metric == "GPA" else f"{float(v):g}"
+    rows = [dict(label=m, pct=int(pct), you=value(m, you), median=value(m, med), status=status, s=series.get(status))
+            for m, you, med, pct, status in p["vs_peers"].itertuples(index=False)]
+    shown = {r["status"] for r in rows}
+    legend = [dict(label=label, color=f"var(--s{series[k] + 1})") for k, label in
+              [("behind", "Behind (under the 25th)"), ("typical", "Typical"), ("ahead", "Ahead (over the 75th)")] if k in shown]
+    return dict(type="lineup", title="Where you line up", legend=legend, rows=rows,
+                subtitle=f"Your percentile among {p['peers_n']} current {s['major']} {s['class_level'].lower()}s",
+                note="Shaded: the middle half of your peers (25th to 75th percentile)."
+                     + (" Work hours are context, not a score." if "context" in shown else ""))
+
+
+def moves_chart(rec):
+    """The recommended levers, by expected salary gain (the same three Ann reads out)."""
+    rows = [dict(label=lever, value=round(float(gain)), sub=f"{-months:.1f} months faster to a first job" if months < -0.05 else None)
+            for lever, gain, months in zip(rec["lever"], rec["salary gain ($)"], rec["months to first job"])]
+    return dict(type="ranked", title="Your top moves", rowName="Move", valueName="Expected salary gain", valueFmt="signedUsdK1",
+                subtitle="Expected change in first-job salary, learned from past alumni", rows=rows)
+
+
+def outlook_chart(premium, rec):
+    """The projection's 80% range for one person, as it is and moved by the recommended levers' combined gain."""
+    gain = float(rec["salary gain ($)"].sum())
+    row = lambda label, d: dict(label=label, value=round(float(premium["expected"]) + d),
+                                lo=round(float(premium["low"]) + d), hi=round(float(premium["high"]) + d))
+    return dict(type="range", title="Where you could start", rowName="Path", valueFmt="signedUsdK", rangeName="80% range",
+                subtitle="First-job salary compared with similar grads (same major and graduation year)",
+                ref=dict(label="Similar grads", value=0), rows=[row("If nothing changes", 0), row("With these moves", gain)],
+                note="Dot: the expected salary. Line: the range 8 in 10 people like you land in. Patterns from past alumni, not guarantees.")
 
 
 def reply_for(conversation, messages, attachments):
+    init()
     started = time.time()
     draft = load_draft(conversation)
     before = json.dumps(draft, sort_keys=True)
     new, model = gemini_extract(draft, messages, attachments)
-    merge(draft, new)
+    merge(draft, resolve(new, draft))
     changed = json.dumps(draft, sort_keys=True) != before
     kind, reply = next_reply(draft, new, changed)
+    reply, charts = reply if kind == "advice" else (reply, [])
     save_draft(conversation, draft)
     known = sum(draft.get(k) is not None for k in REQUIRED) + len(draft["experiences"]) + len(draft["courses"])
     log_event(conversation, kind, started, model, any(a["type"].startswith("audio/") for a in attachments), known)
-    return reply
+    return reply, charts
 
 
 def next_reply(draft, new, changed):
-    """What Ann says next, from the merged draft, and what kind of turn it was: ask, read back, or advise."""
+    """What Ann says next, from the merged draft, and what kind of turn it was: ask, read back, or advise
+    (advice comes as its text and the charts that go with it)."""
     heard = f'I heard: "{new["transcript"].strip()}" ' if new.get("transcript") else ""
     missing = [label for k, label in REQUIRED.items() if draft.get(k) is None]
     if missing:
@@ -289,12 +414,16 @@ def next_reply(draft, new, changed):
 
 
 def enter_page():
+    prebuilt = os.path.join(HERE, "public", "enter-my-data.html")   # the Vercel bundle ships the chat page already built
+    if os.path.exists(prebuilt):
+        return open(prebuilt).read()
     raw = open(os.path.join(HERE, "page.html")).read()   # same assembly as the end of build.py
-    head = re.sub(r"<title>.*?</title>\n", "", raw.split('<header class="nav">')[0])
+    head = raw.split('<header class="nav">')[0].split("</title>\n", 1)[1]   # enter.html has its own doctype, metas and title
     d0 = raw.index("<!-- Crayon collage filters.")
     defs = raw[d0:raw.index("</svg>", d0) + len("</svg>")]
     page = open(os.path.join(HERE, "enter.html")).read()
-    for k, v in {"HEAD": head, "DEFS": defs, "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
+    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": open(os.path.join(HERE, "charts.js")).read(),
+                 "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
         page = page.replace("{{" + k + "}}", v)
     return page
 
@@ -311,6 +440,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             self.send(200, enter_page().encode(), "text/html; charset=utf-8")
         elif self.path == "/api/stats":
+            init()   # makes sure the tables exist on a fresh database
             rows = db("""SELECT hour, kind, turns, distinct_count(conversations_hll), round(avg_latency_ms),
                                 round(approx_percentile(0.95, latency_pct))
                          FROM ann_usage_hourly WHERE hour > now() - INTERVAL '24 hours' ORDER BY hour, kind""") if TIGER_URL else []
@@ -324,8 +454,8 @@ class Handler(BaseHTTPRequestHandler):
         req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         try:
             if self.path == "/api/ann":
-                reply = reply_for(req["conversation"], req["messages"], req.get("attachments", []))
-                self.send(200, json.dumps({"reply": reply}).encode(), "application/json")
+                reply, charts = reply_for(req["conversation"], req["messages"], req.get("attachments", []))
+                self.send(200, json.dumps({"reply": reply, "charts": charts}).encode(), "application/json")
             elif self.path == "/api/voice":
                 key = os.getenv("ELEVENLABS_API_KEY")
                 if not key:
@@ -355,6 +485,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    selfcheck()
+    init()
     port = int(os.getenv("ANN_PORT", "8000"))
     print(f"Advisor Ann is at http://localhost:{port}")
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()

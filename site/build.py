@@ -1,12 +1,13 @@
 """Build the Success Metrics page from analysis.py.
 
-    python site/build.py        ->  site/dist/success-metrics.html  (+ enter-my-data.html)
+    python site/build.py        ->  public/index.html  (+ public/enter-my-data.html)
 
 Every number comes from the same compute_* results app.py shows. Each function
 in CHARTS turns those results into a JSON spec for one chart type in charts.js;
 page.html places it with {{CELL:<name>|<code shown in the cell>}}, optionally
 followed by caption HTML and {{/CELL}} to put that text inside the chart's card. The finished
-page is a single file: charts.js and the chart data are inlined.
+page is a single file: charts.js and the chart data are inlined. public/ is what Vercel serves
+as static files, so commit the rebuilt pages.
 """
 import base64
 import json
@@ -23,8 +24,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import analysis as a  # noqa: E402
 
-OUT = os.path.join(HERE, "dist", "success-metrics.html")
-OUT_ENTER = os.path.join(HERE, "dist", "enter-my-data.html")
+OUT = os.path.join(os.path.dirname(HERE), "public", "index.html")
+OUT_ENTER = os.path.join(os.path.dirname(HERE), "public", "enter-my-data.html")
 
 
 def box(values):
@@ -582,6 +583,72 @@ def strat_gpa(r):
                 note="Bands with at least 20 alumni.")
 
 
+def grade_frames(r):
+    """Graded transcript rows (IP left out) and the alumni frame with each person's count of D, F and W grades."""
+    tr = r["dfs"]["transcripts"]
+    graded = tr[tr["grade"] != "IP"]
+    _, al = strat_frames(r)
+    al["dfw"] = al["campus_id"].map(graded[graded["grade"].isin(["D", "F", "W"])].groupby("campus_id").size()).fillna(0).astype(int)
+    return graded, al
+
+
+@chart
+def strat_dfw(r):
+    _, al = grade_frames(r)
+    al = al.assign(nDfw=al["dfw"].clip(upper=4).map({0: "0", 1: "1", 2: "2", 3: "3", 4: "4+"}))
+    years = al.groupby("nDfw")["time_to_degree_years"].mean()
+    premium = al.groupby("nDfw")["sal_adj"].median()
+    panel = lambda title, fmt, s: dict(title=title, fmt=fmt, bars=[dict(label=k, value=round(float(v), 2)) for k, v in s.items()])
+    return dict(type="multibar", minWidth=460, title="Each D, F or W slows the degree", xName="D/F/W grades:", xLabel="D, F and W grades on the transcript",
+                panels=[panel("Years to degree (mean)", "yr1", years), panel("Salary vs similar grads (median)", "signedUsdK1", premium)])
+
+
+@chart
+def strat_core_dfw(r):
+    graded, _ = grade_frames(r)
+    cat = r["dfs"]["course_catalog"]
+    cs = cat[(cat["course_type"] == "Core") & cat["required_for_majors"].str.contains("Computer Science", na=False)]
+    core = graded[graded["course_id"].isin(cs["course_id"])]
+    rate = core["grade"].isin(["D", "F", "W"]).groupby(core["course_id"]).agg(["mean", "size"]).nlargest(10, "mean")
+    ci = 1.96 * np.sqrt(rate["mean"] * (1 - rate["mean"]) / rate["size"])
+    titles = cat.set_index("course_id")["course_title"]
+    code = lambda c: re.sub(r"^([A-Z]+)", r"\1 ", c)
+    return dict(type="forest", minWidth=560, title="The 10 CS core courses with the most D, F and W grades", rowName="Course",
+                valueFmt="pctRaw1", ref=dict(value=round(float(graded["grade"].isin(["D", "F", "W"]).mean() * 100), 2), label="All courses"),
+                xLabel="% of grades that were D, F or W",
+                note="Required Computer Science core courses, all graded enrollments. Lines are 95% confidence intervals.",
+                rows=[dict(label=f"{code(c)} {titles[c]}", n=int(row["size"]), value=round(float(row["mean"] * 100), 2),
+                           lo=round(float((row["mean"] - ci[c]) * 100), 2), hi=round(float((row["mean"] + ci[c]) * 100), 2)) for c, row in rate.iterrows()])
+
+
+@chart
+def strat_electives(r):
+    import statsmodels.formula.api as smf
+    graded, al = grade_frames(r)
+    cat = r["dfs"]["course_catalog"]
+    electives = cat[cat["course_type"] == "Elective"].set_index("course_id")["course_title"]
+    takers = graded[graded["course_id"].isin(electives.index)].groupby("course_id")["campus_id"].agg(set)
+    ws = al[al["sal_adj"].notna()]
+    rows = []   # same test as the advisor: took the elective vs not, holding GPA, internships, credentials and track fixed
+    for major, d in ws.groupby("major"):
+        for cid, ids in takers.items():
+            took = d["campus_id"].isin(ids).astype(int)
+            if 50 <= took.sum() <= len(d) - 50:
+                f = smf.ols("sal_adj ~ took + final_gpa + internship_count + credential_count + C(track)", data=d.assign(took=took)).fit()
+                lo, hi = f.conf_int().loc["took"]
+                rows.append(dict(major=major, course=cid, n=int(took.sum()), effect=f.params["took"], lo=lo, hi=hi, p=f.pvalues["took"]))
+    el = pd.DataFrame(rows)
+    el["sig"] = el["p"] * len(el) < 0.05   # Bonferroni over every elective tested, both majors
+    cs = el[el["major"] == "Computer Science"].sort_values("effect", ascending=False)
+    code = lambda c: re.sub(r"^([A-Z]+)", r"\1 ", c)
+    return dict(type="forest", labels=True, minWidth=640, title="Security electives come with higher pay, even after GPA and internships", rowName="Elective",
+                valueFmt="signedUsdK1", ref=dict(value=0, label="No difference"), xLabel="Salary vs similar grads: took the elective vs didn't",
+                note=f"Computer Science alumni with a first-job salary. OLS holding GPA, internships, credentials and track constant; lines are 95% confidence intervals. "
+                     f"Grey dots don't pass a Bonferroni check over all {len(el)} elective tests.",
+                rows=[dict(label=f"{code(row['course'])} {electives[row['course']]}", n=row["n"], value=round(float(row["effect"])),
+                           lo=round(float(row["lo"])), hi=round(float(row["hi"])), hl=bool(row["sig"])) for _, row in cs.iterrows()])
+
+
 def strategy_checks_table(r):
     """One factor at a time: Spearman for ordered factors, Mann-Whitney for two-group gaps (salaries are skewed)."""
     from scipy import stats
@@ -653,6 +720,9 @@ NOTEBOOK_CELLS = {   # chart -> (notebook, setup cell ids, chart cell ids; earli
     "strat_activity_payoff": ("strategies.ipynb", ["d67dd327"], ["e28955fd"]),
     "strat_clubs": ("strategies.ipynb", ["d67dd327"], ["7433dfc9"]),
     "strat_gpa": ("strategies.ipynb", ["d67dd327"], ["e0b67ded"]),
+    "strat_dfw": ("strategies.ipynb", ["d67dd327", "a3c91e07"], ["5b0d2f4e"]),
+    "strat_core_dfw": ("strategies.ipynb", ["d67dd327", "a3c91e07"], ["c8e4a6d1"]),
+    "strat_electives": ("strategies.ipynb", ["d67dd327", "a3c91e07"], ["e17b93fa"]),
     "job_destinations": ("job_hunting.ipynb", ["bfaac8c4"], ["a7470077"]),
     "job_time_to_hire": ("job_hunting.ipynb", ["bfaac8c4"], ["b52d25aa"]),
     "job_channels": ("job_hunting.ipynb", ["bfaac8c4"], ["0de09a3d"]),
@@ -820,11 +890,11 @@ def build():
     open(OUT, "w").write(page)
     print(f"built {os.path.relpath(OUT)}: {len(used)} charts, {len(page) / 1024:.0f} KB")
 
-    # the "Free consultation" page (Advisor Ann) shares the main page's fonts, styles and crayon filters
-    head = re.sub(r"<title>.*?</title>\n", "", raw.split('<header class="nav">')[0])
+    # the "Free consultation" page (Advisor Ann) shares the main page's fonts, styles, crayon filters and chart renderer
+    head = raw.split('<header class="nav">')[0].split("</title>\n", 1)[1]   # enter.html has its own doctype, metas and title
     d0 = raw.index("<!-- Crayon collage filters."); defs = raw[d0:raw.index("</svg>", d0) + len("</svg>")]   # the same crayon filters
     enter = open(os.path.join(HERE, "enter.html")).read()
-    for k, v in {"HEAD": head, "DEFS": defs, "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
+    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": subs["CHARTS_JS"], "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
         enter = enter.replace("{{" + k + "}}", v)
     open(OUT_ENTER, "w").write(enter)
     print(f"built {os.path.relpath(OUT_ENTER)}")

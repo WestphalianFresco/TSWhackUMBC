@@ -26,7 +26,7 @@
   // Each stage: where the student stands (share of the scene width), what he wears, and the sticker's words.
   const STATES = {
     life: { zone: 1 / 6, fit: 'student', label: 'A student in a hoodie with a backpack', step: 'Student Life', title: 'Day one on campus' },
-    strategy: { zone: 0.58, fit: 'strategy', label: 'A student in a shirt with an intern badge, holding a notebook', step: 'Strategies', title: 'Stack up experience' },
+    strategy: { zone: 0.58, fit: 'strategy', label: 'A student in a shirt with an intern badge, holding a notebook', step: 'Smart Moves', title: 'Stack up experience' },
     job: { zone: 5 / 6, fit: 'job', label: 'A graduate in a suit and tie, carrying a briefcase', step: 'Job Trajectory', title: 'Suit up' },
   };
 

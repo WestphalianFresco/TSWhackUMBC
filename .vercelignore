@@ -1,0 +1,3 @@
+# never uploaded, even by a `vercel deploy` from this folder: on Vercel the keys are project environment variables
+.env*
+site/vercel_app
