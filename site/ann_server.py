@@ -452,14 +452,14 @@ def next_reply(draft, new, changed):
 def enter_page():
     prebuilt = os.path.join(HERE, "public", "enter-my-data.html")   # the Vercel bundle ships the chat page already built
     if os.path.exists(prebuilt):
-        return open(prebuilt).read()
-    raw = open(os.path.join(HERE, "page.html")).read()   # same assembly as the end of build.py
+        return open(prebuilt, encoding="utf-8").read()
+    raw = open(os.path.join(HERE, "page.html"), encoding="utf-8").read()   # same assembly as the end of build.py
     head = raw.split('<header class="nav">')[0].split("</title>\n", 1)[1]   # enter.html has its own doctype, metas and title
     d0 = raw.index("<!-- Crayon collage filters.")
     defs = raw[d0:raw.index("</svg>", d0) + len("</svg>")]
-    page = open(os.path.join(HERE, "enter.html")).read()
-    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": open(os.path.join(HERE, "charts.js")).read(),
-                 "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
+    page = open(os.path.join(HERE, "enter.html"), encoding="utf-8").read()
+    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": open(os.path.join(HERE, "charts.js"), encoding="utf-8").read(),
+                 "ADVISOR_JS": open(os.path.join(HERE, "advisor.js"), encoding="utf-8").read()}.items():
         page = page.replace("{{" + k + "}}", v)
     return page
 
