@@ -10,7 +10,7 @@ public/            every page in public/ (index.html is the home page; enter-my-
 ann_server.py      Ann's backend; pyproject.toml (the root one, entrypoint moved to this flat layout) names its
 advisor.py         Handler as the one Python entrypoint, which answers /api/ann, /api/voice and /api/stats
 vercel.json        the root one: 120 seconds for that function (a cold start learns from the data for ~10 s, then
-                   Gemini may fall through its busy models at 20 s each), and the old page address redirected
+                   Claude may take up to 50 s, retried once if busy), and the old page address redirected
 It never contains .env or data/: on Vercel the keys are project environment variables and the data comes from
 Tiger Data. The folder is rebuilt from scratch each run, so edit the originals, not the copies.
 """
