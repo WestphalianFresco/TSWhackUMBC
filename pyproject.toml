@@ -6,6 +6,7 @@ name = "success-metrics"
 version = "0.1.0"
 requires-python = "~=3.13.0"   # the version the advisor pipeline was tested on
 dependencies = [
+    "anthropic==1.11.0",
     "pandas==3.0.5",
     "numpy==2.4.6",
     "scipy==1.18.1",

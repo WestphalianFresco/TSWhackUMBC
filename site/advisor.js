@@ -4,7 +4,7 @@
  * A normal chat: Ann greets the student ("What can I do for you?"), the student types or
  * attaches pictures, audio and files, and Ann answers in text and out loud. On wide screens a
  * large crayon Ann talks and blinks beside the chat. Two pieces are placeholders, each one
- * function to swap: her brain (askAnn, for Gemini) and her voice (annVoice.speak, for ElevenLabs).
+ * function to swap: her brain (askAnn, for Claude) and her voice (annVoice.speak, for ElevenLabs).
  */
 
 /* ── Ann's brain ───────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@
  *   conversation: bumped by ↻, so the server starts a fresh profile for a restarted chat
  *   reply:        what she says, as plain text
  *   charts:       chart specs for charts.js (with her advice: "Where you line up" and more), drawn under it
- * The page asks site/ann_server.py (POST /api/ann), which holds the Gemini key and runs the advisor
+ * The page asks site/ann_server.py (POST /api/ann), which holds the Anthropic key and runs the advisor
  * (never put a key in this page: anyone who opens it can read it). Opened without that server,
  * for example the built file from disk, Ann says her brain isn't connected.
  */
