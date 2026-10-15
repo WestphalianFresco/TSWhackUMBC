@@ -753,7 +753,7 @@ def chart_code(names, data):
     cells = {}
     def cell(nb, cid):
         if nb not in cells:
-            cells[nb] = {c.get("id"): "".join(c["source"]).strip() for c in json.load(open(os.path.join(root, nb)))["cells"]}
+            cells[nb] = {c.get("id"): "".join(c["source"]).strip() for c in json.load(open(os.path.join(root, nb), encoding="utf-8"))["cells"]}
         return cells[nb][cid]
     code = {}
     for name in names:
@@ -828,7 +828,7 @@ def build():
     dfs = a.load()
     r = dict(majors=a.compute_majors(dfs), intern=a.compute_internships(dfs), first_job=a.compute_first_job(dfs),
              unemp=a.compute_unemployment(dfs), activities=a.compute_activities(dfs), dfs=dfs)
-    page = raw = open(os.path.join(HERE, "page.html")).read()
+    page = raw = open(os.path.join(HERE, "page.html"), encoding="utf-8").read()
 
     used = []
 
@@ -871,8 +871,8 @@ def build():
         "U_N3": str(u["unemp"].loc[3, "alum_count"]),
         "CHART_DATA": json.dumps(data, separators=(",", ":")).replace("</", "<\\/"),
         "CHART_CODE": json.dumps(chart_code(used, data), separators=(",", ":")).replace("</", "<\\/"),
-        "CHARTS_JS": open(os.path.join(HERE, "charts.js")).read(),
-        "HERO_JS": open(os.path.join(HERE, "hero.js")).read(),
+        "CHARTS_JS": open(os.path.join(HERE, "charts.js"), encoding="utf-8").read(),
+        "HERO_JS": open(os.path.join(HERE, "hero.js"), encoding="utf-8").read(),
     }
     for k, v in subs.items():
         page = page.replace("{{" + k + "}}", v)
@@ -887,16 +887,16 @@ def build():
     assert not left, f"unfilled placeholders: {left}"
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    open(OUT, "w").write(page)
+    open(OUT, "w", encoding="utf-8").write(page)
     print(f"built {os.path.relpath(OUT)}: {len(used)} charts, {len(page) / 1024:.0f} KB")
 
     # the "Free consultation" page (Advisor Ann) shares the main page's fonts, styles, crayon filters and chart renderer
     head = raw.split('<header class="nav">')[0].split("</title>\n", 1)[1]   # enter.html has its own doctype, metas and title
     d0 = raw.index("<!-- Crayon collage filters."); defs = raw[d0:raw.index("</svg>", d0) + len("</svg>")]   # the same crayon filters
-    enter = open(os.path.join(HERE, "enter.html")).read()
-    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": subs["CHARTS_JS"], "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
+    enter = open(os.path.join(HERE, "enter.html"), encoding="utf-8").read()
+    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": subs["CHARTS_JS"], "ADVISOR_JS": open(os.path.join(HERE, "advisor.js"), encoding="utf-8").read()}.items():
         enter = enter.replace("{{" + k + "}}", v)
-    open(OUT_ENTER, "w").write(enter)
+    open(OUT_ENTER, "w", encoding="utf-8").write(enter)
     print(f"built {os.path.relpath(OUT_ENTER)}")
 
 

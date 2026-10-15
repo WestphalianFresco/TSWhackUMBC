@@ -1,13 +1,14 @@
-"""Advisor Ann's server: her brain (Gemini + the advisor pipeline) and her voice (ElevenLabs).
+"""Advisor Ann's server: her brain (Claude + the advisor pipeline) and her voice (ElevenLabs).
 
     python site/ann_server.py        ->  open http://localhost:8000
 
 GET  /           the "Enter my data" chat, assembled like build.py does (page.html head + enter.html + charts.js + advisor.js),
                  so an edit to advisor.js shows up on refresh without rebuilding
 POST /api/ann    {conversation, messages, attachments} -> {reply, charts}
-                 Gemini turns what the student typed, said (audio) or uploaded into fields the advisor understands;
+                 Claude turns what the student typed, said (a voice note, transcribed by ElevenLabs) or uploaded
+                 (pictures, PDFs, text files) into fields the advisor understands;
                  the advisor validates them, Ann asks for anything missing, and once the student confirms,
-                 the tested pipeline (not Gemini) produces the advice, with charts.js specs drawn under it:
+                 the tested pipeline (not Claude) produces the advice, with charts.js specs drawn under it:
                  where the student lines up among peers, their top moves, and where they could start
 POST /api/voice  {text} -> audio/mpeg from ElevenLabs; 503 when no key, and the page falls back to the browser voice
 GET  /api/stats  Ann's live usage for the last 24 hours, from the Tiger Data continuous aggregate
@@ -16,8 +17,8 @@ Ann's memory lives in Tiger Data (TIGER_URL in .env): each student's draft profi
 and every turn as a row in the hypertable ann_events (columnstore after 7 days), rolled up hourly by the continuous
 aggregate ann_usage_hourly. Without TIGER_URL she keeps drafts in memory and logs nothing.
 
-Keys stay here, read from .env: GEMINI_API_KEY (required); ELEVENLABS_API_KEY for Ann's voice, and optionally
-ELEVENLABS_VOICE_ID and ELEVENLABS_MODEL to change it.
+Keys stay here, read from .env: ANTHROPIC_API_KEY (required); ELEVENLABS_API_KEY for Ann's voice and for hearing
+voice notes, and optionally ELEVENLABS_VOICE_ID and ELEVENLABS_MODEL to change her voice.
 """
 import base64
 import json
@@ -28,8 +29,10 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import anthropic
 import psycopg
 from dotenv import load_dotenv
 from psycopg.types.json import Jsonb
@@ -40,11 +43,13 @@ sys.path[:0] = [HERE, os.path.join(ROOT, "advisor")]   # advisor.py sits in ../a
 import advisor as adv  # noqa: E402
 
 load_dotenv(os.path.join(ROOT, ".env"))
-# newest Flash first; when one is overloaded (503/429/500) or closed to this key (404), the next one answers.
-# 3.1-flash-lite is second because it is fast and almost always up; its habit of guessing course numbers is harmless
-# now that resolve_course() (code, not the model) decides which catalog course a student meant.
-GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.7-flash"]
+# Claude Opus 5.5 always thinks before it answers; low effort keeps that short, so a chat turn stays quick.
+# The SDK retries a busy (429/5xx) answer once; resolve_course() (code, not the model) still decides which catalog
+# course a student meant.
+CLAUDE_MODEL, CLAUDE_EFFORT = "claude-opus-5-5", "low"
+CLAUDE = None   # made by init(), with the key from .env
 ELEVEN_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5")   # the low-latency model, so Ann answers quickly
+ELEVEN_STT = os.getenv("ELEVENLABS_STT_MODEL", "scribe_v2")   # Claude reads but doesn't listen: voice notes go through Scribe
 REQUIRED = {"major": "your major (Computer Science or Information Systems)", "track": "your track",
             "credits_earned": "how many credits you've earned", "cumulative_gpa": "your cumulative GPA"}
 
@@ -59,9 +64,9 @@ _initLock = threading.Lock()
 
 
 def init():
-    """Learn from the data, make sure Ann's tables exist, and prepare Gemini's schema, once per process:
+    """Learn from the data, make sure Ann's tables exist, and prepare Claude's schema, once per process:
     at startup when run locally, on the first request of each Vercel instance."""
-    global CTX, SCHEMA, INSTRUCTIONS, TITLES
+    global CTX, SCHEMA, INSTRUCTIONS, TITLES, CLAUDE
     with _initLock:
         if CTX is not None:
             return
@@ -69,6 +74,8 @@ def init():
         ctx = adv.build()
         if TIGER_URL:
             ensure_tables()
+        # 50 s and one retry stay inside the 120 s vercel.json gives a turn, cold start included
+        CLAUDE = anthropic.Anthropic(timeout=50, max_retries=1)
         SCHEMA, INSTRUCTIONS = schema_for(ctx), instructions_for(ctx)
         TITLES = dict(zip(ctx["cat"]["course_id"], ctx["cat"]["course_title"]))
         CTX = ctx
@@ -146,43 +153,43 @@ def log_event(conversation, kind, started, model=None, has_audio=None, fields_kn
 
 
 def nullable(schema):
-    return {**schema, "nullable": True}
+    return {"anyOf": [schema, {"type": "null"}]}
+
+
+def obj(properties):
+    """Claude's structured outputs take closed objects; every field is required, and null when unknown."""
+    return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
 
 
 def schema_for(ctx):
-    """Gemini may only answer with values that exist in the dataset: every enum below comes from the data itself."""
+    """Claude may only answer with values that exist in the dataset: every enum below comes from the data itself."""
     tracks = sorted({t for ts in ctx["tracks"].values() for t in ts})
-    return {
-        "type": "OBJECT",
-        "properties": {
-            "transcript": nullable({"type": "STRING"}),
-            "major": nullable({"type": "STRING", "enum": sorted(ctx["tracks"])}),
-            "track": nullable({"type": "STRING", "enum": tracks}),
-            "entry_type": nullable({"type": "STRING", "enum": ["First-Time Freshman", "Transfer"]}),
-            "credits_earned": nullable({"type": "INTEGER"}),
-            "cumulative_gpa": nullable({"type": "NUMBER"}),
-            "is_first_generation": nullable({"type": "BOOLEAN"}),
-            "work_hours_per_week": nullable({"type": "INTEGER"}),
-            "experiences": {"type": "ARRAY", "items": {"type": "OBJECT", "required": ["experience_type"], "properties": {
-                "experience_type": {"type": "STRING", "enum": sorted(ctx["types"])},
-                "organization": nullable({"type": "STRING"}),
-                "role_level": nullable({"type": "STRING"})}}},
-            "courses": {"type": "ARRAY", "items": {"type": "OBJECT", "required": ["said"], "properties": {
-                "said": {"type": "STRING"},
-                "course_id": nullable({"type": "STRING", "enum": sorted(ctx["cat"]["course_id"])}),
-                "grade": nullable({"type": "STRING", "enum": sorted(adv.GRADES)})}}},
-            "remove": {"type": "ARRAY", "items": {"type": "STRING"}},
-            "unclear": {"type": "ARRAY", "items": {"type": "STRING"}},
-            "confirms_profile": {"type": "BOOLEAN"},
-        },
-        "required": ["experiences", "courses", "remove", "unclear", "confirms_profile"],
-    }
+    return obj({
+        "major": nullable({"type": "string", "enum": sorted(ctx["tracks"])}),
+        "track": nullable({"type": "string", "enum": tracks}),
+        "entry_type": nullable({"type": "string", "enum": ["First-Time Freshman", "Transfer"]}),
+        "credits_earned": nullable({"type": "integer"}),
+        "cumulative_gpa": nullable({"type": "number"}),
+        "is_first_generation": nullable({"type": "boolean"}),
+        "work_hours_per_week": nullable({"type": "integer"}),
+        "experiences": {"type": "array", "items": obj({
+            "experience_type": {"type": "string", "enum": sorted(ctx["types"])},
+            "organization": nullable({"type": "string"}),
+            "role_level": nullable({"type": "string"})})},
+        "courses": {"type": "array", "items": obj({
+            "said": {"type": "string"},
+            "course_id": nullable({"type": "string", "enum": sorted(ctx["cat"]["course_id"])}),
+            "grade": nullable({"type": "string", "enum": sorted(adv.GRADES)})})},
+        "remove": {"type": "array", "items": {"type": "string"}},
+        "unclear": {"type": "array", "items": {"type": "string"}},
+        "confirms_profile": {"type": "boolean"},
+    })
 
 
 def instructions_for(ctx):
     catalog = "\n".join(f"{r.course_id}: {r.course_title}" for r in ctx["cat"].itertuples())
-    return f"""You turn what a UMBC computing student types, says in an audio recording, or shows in an uploaded
-transcript or resume into structured fields for an advising tool. Rules:
+    return f"""You turn what a UMBC computing student types, says in a voice note (given to you as its transcription),
+or shows in an uploaded transcript or resume into structured fields for an advising tool. Rules:
 - Fill a field only when the student clearly states it. Never guess; leave anything unknown null.
 - Report only what is NEW in the student's latest message and attachments; the known profile is given for context.
 - For each course, put the student's own words in `said` exactly as they said them (e.g. "IS 210", "data structures"),
@@ -190,39 +197,64 @@ transcript or resume into structured fields for an advising tool. Rules:
 - `remove` lists courses or activities the student says are wrong, a mistake, or that they did not take or do,
   in their words or as course codes.
 - Grades are letters only: A B C D F, W for a withdrawal, IP for a course in progress.
-- If there is audio, write what the student said, word for word, in `transcript`; keep every number as spoken.
 - `confirms_profile` is true only when the latest message clearly agrees that the summary Ann just read back is correct.
 Course catalog:
 {catalog}"""
 
 
-def gemini_extract(draft, messages, attachments):
-    lastAnn = next((m["text"] for m in reversed(messages[:-1]) if m["role"] == "ann"), "")
-    parts = [{"text": f"Known profile so far: {json.dumps(draft)}\nAnn's last message: {lastAnn}\n"
-                      f"Student's latest message: {messages[-1]['text'] or '(no text, see attachments)'}"}]
+IMAGES = {"image/jpeg", "image/png", "image/gif", "image/webp"}   # the picture types Claude reads
+TEXT_FILES = (".txt", ".csv", ".json", ".md")
+
+
+def transcribe(name, mime, data):
+    """A voice note's words, from ElevenLabs Scribe (multipart upload: the model id and the file)."""
+    b = uuid.uuid4().hex
+    body = (f'--{b}\r\nContent-Disposition: form-data; name="model_id"\r\n\r\n{ELEVEN_STT}\r\n'
+            f'--{b}\r\nContent-Disposition: form-data; name="file"; filename="{name.replace(chr(34), "")}"\r\n'
+            f"Content-Type: {mime}\r\n\r\n").encode() + base64.b64decode(data) + f"\r\n--{b}--\r\n".encode()
+    req = urllib.request.Request("https://api.elevenlabs.io/v1/speech-to-text", data=body, headers={
+        "xi-api-key": os.environ["ELEVENLABS_API_KEY"], "Content-Type": f"multipart/form-data; boundary={b}"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)["text"].strip()
+
+
+def read_attachments(attachments):
+    """The student's files as Claude content blocks, their voice notes as words, and the names of files Ann can't open."""
+    blocks, heard, skipped = [], [], []
     for a in attachments:   # dataUrl = "data:<mime>;base64,<data>"
         mime, _, data = a["dataUrl"].partition(";base64,")
-        parts.append({"inline_data": {"mime_type": mime.removeprefix("data:"), "data": data}})
-    body = {"system_instruction": {"parts": [{"text": INSTRUCTIONS}]},
-            "contents": [{"role": "user", "parts": parts}],
-            "generationConfig": {"responseMimeType": "application/json", "responseSchema": SCHEMA,
-                                 "temperature": 0}}
-    for i, model in enumerate(GEMINI_MODELS):
-        last = i == len(GEMINI_MODELS) - 1
-        req = urllib.request.Request(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": os.environ["GEMINI_API_KEY"]})
-        try:
-            with urllib.request.urlopen(req, timeout=15) as r:
-                return json.loads(json.load(r)["candidates"][0]["content"]["parts"][0]["text"]), model
-        except urllib.error.HTTPError as e:
-            if e.code not in (404, 429, 500, 503) or last:
-                raise
-            print(f"{model} answered {e.code}, trying the next model", file=sys.stderr)
-        except (TimeoutError, urllib.error.URLError) as e:   # a model that hangs is as good as a busy one
-            if last:
-                raise
-            print(f"{model} timed out ({e}), trying the next model", file=sys.stderr)
+        mime = mime.removeprefix("data:")
+        if mime in IMAGES:
+            blocks.append({"type": "image", "source": {"type": "base64", "media_type": mime, "data": data}})
+        elif mime == "application/pdf":
+            blocks.append({"type": "document", "title": a["name"],
+                           "source": {"type": "base64", "media_type": mime, "data": data}})
+        elif (mime.startswith("text/") or mime == "application/json" or a["name"].lower().endswith(TEXT_FILES)) \
+                and (text := base64.b64decode(data).decode("utf-8", "replace")).strip():
+            blocks.append({"type": "document", "title": a["name"],
+                           "source": {"type": "text", "media_type": "text/plain", "data": text}})
+        elif mime.startswith("audio/") and os.getenv("ELEVENLABS_API_KEY"):
+            heard.append(transcribe(a["name"], mime, data))
+        else:   # Word files, unsupported pictures, audio without an ElevenLabs key
+            skipped.append(a["name"])
+    return blocks, " ".join(heard), skipped
+
+
+def claude_extract(draft, messages, blocks, heard):
+    """What's new in the student's latest turn, as fields that follow SCHEMA, and the model that answered."""
+    lastAnn = next((m["text"] for m in reversed(messages[:-1]) if m["role"] == "ann"), "")
+    said = " ".join(filter(None, [messages[-1]["text"], heard and f"(voice note) {heard}"]))
+    prompt = (f"Known profile so far: {json.dumps(draft)}\nAnn's last message: {lastAnn}\n"
+              f"Student's latest message: {said or '(no text, see attachments)'}")
+    r = CLAUDE.beta.messages.create(
+        model=CLAUDE_MODEL, max_tokens=16000,
+        betas=["server-side-fallback-2026-07-01"], fallbacks="default",   # a declined turn is re-run on Anthropic's pick
+        output_config={"effort": CLAUDE_EFFORT, "format": {"type": "json_schema", "schema": SCHEMA}},
+        system=[{"type": "text", "text": INSTRUCTIONS, "cache_control": {"type": "ephemeral"}}],   # same catalog every turn
+        messages=[{"role": "user", "content": blocks + [{"type": "text", "text": prompt}]}])
+    if r.stop_reason in ("refusal", "max_tokens"):   # the JSON would be missing or cut off
+        raise ValueError(f"Claude stopped early ({r.stop_reason})")
+    return json.loads(next(b.text for b in r.content if b.type == "text")), r.model
 
 
 COURSE_CODE = re.compile(r"\b([A-Za-z]{2,4})\s*-?\s*(\d{3}[A-Za-z]?)\b")
@@ -247,7 +279,7 @@ def resolve_course(said, guess, titles):
 
 
 def resolve(new, draft, titles=None):
-    """Swap Gemini's course guesses for code-checked ids; anything unresolved becomes a question for the student."""
+    """Swap Claude's course guesses for code-checked ids; anything unresolved becomes a question for the student."""
     titles = titles or TITLES
     courses = []
     for c in new["courses"]:
@@ -373,11 +405,15 @@ def reply_for(conversation, messages, attachments):
     started = time.time()
     draft = load_draft(conversation)
     before = json.dumps(draft, sort_keys=True)
-    new, model = gemini_extract(draft, messages, attachments)
+    blocks, heard, skipped = read_attachments(attachments)
+    new, model = claude_extract(draft, messages, blocks, heard)
+    new["transcript"] = heard   # what next_reply reads back as "I heard: ..."
     merge(draft, resolve(new, draft))
     changed = json.dumps(draft, sort_keys=True) != before
     kind, reply = next_reply(draft, new, changed)
     reply, charts = reply if kind == "advice" else (reply, [])
+    if skipped:
+        reply = f"I can't open {', '.join(skipped)} yet, so I left {'it' if len(skipped) == 1 else 'them'} out. {reply}"
     save_draft(conversation, draft)
     known = sum(draft.get(k) is not None for k in REQUIRED) + len(draft["experiences"]) + len(draft["courses"])
     log_event(conversation, kind, started, model, any(a["type"].startswith("audio/") for a in attachments), known)
@@ -416,14 +452,14 @@ def next_reply(draft, new, changed):
 def enter_page():
     prebuilt = os.path.join(HERE, "public", "enter-my-data.html")   # the Vercel bundle ships the chat page already built
     if os.path.exists(prebuilt):
-        return open(prebuilt).read()
-    raw = open(os.path.join(HERE, "page.html")).read()   # same assembly as the end of build.py
+        return open(prebuilt, encoding="utf-8").read()
+    raw = open(os.path.join(HERE, "page.html"), encoding="utf-8").read()   # same assembly as the end of build.py
     head = raw.split('<header class="nav">')[0].split("</title>\n", 1)[1]   # enter.html has its own doctype, metas and title
     d0 = raw.index("<!-- Crayon collage filters.")
     defs = raw[d0:raw.index("</svg>", d0) + len("</svg>")]
-    page = open(os.path.join(HERE, "enter.html")).read()
-    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": open(os.path.join(HERE, "charts.js")).read(),
-                 "ADVISOR_JS": open(os.path.join(HERE, "advisor.js")).read()}.items():
+    page = open(os.path.join(HERE, "enter.html"), encoding="utf-8").read()
+    for k, v in {"HEAD": head, "DEFS": defs, "CHARTS_JS": open(os.path.join(HERE, "charts.js"), encoding="utf-8").read(),
+                 "ADVISOR_JS": open(os.path.join(HERE, "advisor.js"), encoding="utf-8").read()}.items():
         page = page.replace("{{" + k + "}}", v)
     return page
 
@@ -471,7 +507,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, audio, "audio/mpeg")
             else:
                 self.send(404, b"not found", "text/plain")
-        except (urllib.error.URLError, KeyError, ValueError) as e:   # the page shows its own "something went wrong" line
+        except (urllib.error.URLError, anthropic.APIError, KeyError, ValueError) as e:   # the page shows its own "something went wrong" line
             detail = e.read().decode()[:300] if isinstance(e, urllib.error.HTTPError) else str(e)
             print(f"{self.path} failed: {detail}", file=sys.stderr)
             try:

@@ -1,97 +1,56 @@
 # TSWhackUMBC
 
-An exploratory analysis of UMBC student and alumni data, asking one question: **what makes a student "successful"?**
+What makes a UMBC computing student successful? This project looks at student and alumni data (majors, internships, first jobs, activities) against outcomes like starting salary, time to a first job and unemployment. It turns the results into a one-page site, a dashboard, and Advisor Ann, a chat advisor that builds a personal plan from a student's transcript.
 
-"Success" means different things depending on a student's career and educational goals, so rather than pick one definition, the analysis looks at how different factors (major, degree level, internships, first job, student activities) relate to different outcomes (starting salary, salary growth, time to first job, unemployment).
+**Live:** https://successmatrixdashboard.vercel.app
 
-The results can be explored in the Jupyter notebook or in an interactive Streamlit dashboard.
+## Features
 
-## Repository layout
+- **Success Metrics page:** about 40 animated charts on majors, internships, first jobs, unemployment and student activities, plus Student Life, Smart Moves and Job Trajectory sections. Every chart has tooltips and a table view.
+- **Advisor Ann:** students type, upload a transcript or resume (PDF, image or text file), or send a voice note. Ann builds their profile and reads it back to confirm. Then she shows where they line up among peers, their top moves ranked by expected salary gain, and how their starting salary could compare with similar grads, each with a chart. She says her answers out loud, and three sample transcripts are there to try.
+- **Dashboard:** a Streamlit app with a tab per topic.
+- **Notebooks:** the analysis behind it all (`dataset_analysis.ipynb`, `job_hunting.ipynb`, `strategies.ipynb`).
+
+## Architecture
 
 ```
-.
-├── dataset_analysis.ipynb   # exploratory analysis and charts
-├── analysis.py              # the notebook's calculations and charts as reusable functions
-├── app.py                   # Streamlit dashboard built on analysis.py
-├── requirements.txt
-└── data/
-    ├── alumni.csv               # graduates: degree, GPA, cost, first-job outcome (~3.2K rows)
-    ├── employment_history.csv   # every job held by alumni after graduating (~6K rows)
-    ├── students_current.csv     # currently enrolled students (~1.8K rows)
-    ├── student_experience.csv   # internships, research, and other experiences (~20K rows)
-    ├── transcripts.csv          # course-level grades for each student (~140K rows)
-    └── course_catalog.csv       # courses, prerequisites, and skill tags (~70 rows)
+data/                six CSVs: alumni, employment history, current students, experiences, transcripts, course catalog
+analysis.py          the analysis as functions, used by app.py (the dashboard) and site/build.py
+advisor/advisor.py   Ann's advice: peer comparison, outcome projection, ranked levers
+site/build.py        builds public/index.html (the page) and public/enter-my-data.html (Ann's chat)
+site/ann_server.py   Ann's backend: /api/ann (Claude + advisor.py), /api/voice (ElevenLabs), /api/stats
+public/              the built pages
+tiger/load_tiger.py  loads the CSVs into Tiger Data (TimescaleDB)
 ```
 
-All tables join on `campus_id`. `transcripts.csv` also joins to `course_catalog.csv` on `course_id`.
+When a student messages Ann, the chat page posts it to `/api/ann`. Claude turns the message into profile fields, code checks every course against the catalog, and Ann asks about anything missing or unclear. Once the student confirms the profile, `advisor.py` computes the advice and its charts. With `TIGER_URL` set, Ann reads the data from Tiger Data and keeps each student's draft profile and a usage log there.
+
+The site runs on Vercel (project `successmatrixdashboard`): `public/` is served as static files, and everything else goes to `site/ann_server.py`. Pushing to `main` deploys to production. Page and chart details are in [site/README.md](site/README.md).
+
+## Models
+
+- **Claude Opus 5.5** (`claude-opus-5-5`, through the Anthropic SDK) reads what the student types or uploads and fills in their profile. Structured outputs limit it to majors, tracks, courses and grades that exist in the data. It does not write the advice.
+- **The advice** comes from `advisor/advisor.py`: a regression trained on alumni plus the 50 most similar alumni, and only levers that passed significance tests.
+- **ElevenLabs:** `eleven_flash_v2_5` for Ann's voice, and Scribe (`scribe_v2`) to transcribe voice notes.
 
 ## Getting started
 
-Requires Python 3.
+Python 3.13 or newer.
 
 ```bash
 pip install -r requirements.txt
+streamlit run app.py          # dashboard at http://localhost:8501
 ```
 
-### Dashboard
+The site build and Advisor Ann need a few more packages:
 
 ```bash
-streamlit run app.py
+pip install scipy statsmodels anthropic SQLAlchemy "psycopg[binary]" python-dotenv
+python site/build.py          # rebuild public/ after changing the analysis or the page
+python site/ann_server.py     # Advisor Ann at http://localhost:8000
 ```
 
-Then open http://localhost:8501. The first load takes about 10 seconds while the data is processed; later loads are cached. Keep the terminal open while using the dashboard (Ctrl+C stops it).
-
-The dashboard shows the headline numbers at the top, then one tab per topic (Majors, Internships, First Job, Unemployment, Student Activities). Each tab has its charts with the conclusions below them, and the supporting tables in expandable sections.
-
-### Notebook
-
-```bash
-pip install jupyter
-jupyter notebook dataset_analysis.ipynb
-```
-
-Run the notebook from the repository root. It reads the CSVs from the relative `data/` path.
-
-### Editing the analysis
-
-Add or change calculations and charts in `analysis.py`: `compute_*` functions return tables and numbers, and `plot_*` functions return matplotlib figures. Then display them in `app.py`. Conclusion text in `app.py` is written by hand, so update it if the data changes.
-
-## Findings so far
-
-### Major
-- **Computer Science and Information Systems lead to very similar salaries.** CS alumni earn a median of about 3% more than IS alumni, and the two distributions overlap almost entirely.
-- **The early gap closes.** When median salary is tracked by years since the first job, IS alumni catch up to CS alumni around the 5-year mark.
-- **Major explains very little of starting salary.** The correlation between major and first-job salary is about −0.135, so major accounts for roughly 2% of the variation.
-- Most alumni hold only a bachelor's degree (2,032 vs. 115 with a master's), so the master's comparisons rest on small samples.
-
-### Internships
-- **More internships mean higher starting salaries and faster hiring, up to a point.** The gains level off between 2 and 3 internships, both in salary and in how quickly alumni are hired.
-- **Most alumni with 2 or 3 internships were hired within a month of graduating.** Those with 0 or 1 took noticeably longer.
-- **Return offers pay more.** Among alumni who had internships, those whose first job was a return offer earned a higher median starting salary:
-
-  | Internships | Median salary, no return offer | Median salary, return offer | Difference |
-  |---:|---:|---:|---:|
-  | 1 | $77,500 | $82,750 | +$5,250 |
-  | 2 | $81,000 | $87,750 | +$6,750 |
-  | 3 | $83,500 | $90,250 | +$6,750 |
-
-### First job family and industry
-- **The first job matters far more than major.** An ANOVA (η²) test shows first job family explains about 20% of the variation in starting salary and first employer industry about 16%, compared with about 2% for major.
-- **No alumni switched job families or industries**, so the first job sets the career track.
-- **Job family:** Cybersecurity has the highest median starting salary ($91,250) and earns about $11.6K more than peers with the same experience. IT Support & Operations has the lowest ($63,000) and earns about $23K less than peers.
-- **Industry:** Cloud & Infrastructure has the highest median starting salary ($90,500), and it and Telecommunications both earn about $9K more than peers. Federal Government has the lowest ($68,250) and earns about $12.7K less than peers.
-
-### Unemployment
-- **9.8% of alumni in the labor force were still seeking work** after graduation (CS 9.5%, IS 10.2%).
-- **More internships mean lower unemployment:** 12.6% with no internships, 10.6% with 1, 7.2% with 2, and 4.9% with 3.
-- These rates exclude alumni in grad school, those who didn't respond, and 2026 graduates, who haven't had time to search yet.
-
-### Student activities
-- **Student organizations are the most common experience** (66% of current students), followed by internships (44%) and campus jobs (42%). Co-ops are the least common (8%).
-- **Alumni involved with certain organizations earned more.** The top 10 organizations by alumni first-job salary (at least 30 alumni each) have medians $8K–$14K above the all-alumni median of $78,250.
-
-### Notes on sample sizes
-To keep medians reliable, the salary-trend, internship, first-job, and unemployment charts leave out groups with fewer than 50 alumni. The return-offer comparison leaves out groups with fewer than 10 return offers (which drops 4 internships).
+Ann reads her keys from `.env` at the repo root. `ANTHROPIC_API_KEY` is required. `ELEVENLABS_API_KEY` adds her voice and voice notes (without it, the browser's voice is used). `TIGER_URL` connects Tiger Data (without it, she reads the CSVs and keeps drafts in memory).
 
 ## License
 
