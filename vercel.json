@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "redirects": [
     { "source": "/success-metrics.html", "destination": "/", "permanent": true },
     { "source": "/enter-my-data.html", "destination": "/", "permanent": false },
