@@ -1,12 +1,3 @@
 # never uploaded, even by a `vercel deploy` from this folder: on Vercel the keys are project environment variables
 .env*
 site/vercel_app
-
-# Vercel serves one page: Success Metrics (public/index.html). Everything else stays in the repo but is
-# not deployed: Advisor Ann's page and server, the old Success Signals page, and the Python project files
-# (with pyproject.toml or app.py in view, Vercel builds a Python app instead of serving public/ as it is).
-/*
-!/public
-!/vercel.json
-/public/enter-my-data.html
-/public/success-signals.html
