@@ -91,7 +91,6 @@ const annVoice = (() => {
 
 (() => {
   const A = window.anime;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
   const log = $('log'), box = $('msg'), tray = $('tray'), fileIn = $('fileIn');
   const messages = [];
@@ -105,7 +104,7 @@ const annVoice = (() => {
   const talking = on => {   // Ann's mouth (portrait and header avatar) opens and closes while she speaks
     clearInterval(mouth);
     document.querySelectorAll('.ann-talks').forEach(el => el.classList.remove('open'));
-    if (on && !reduce) mouth = setInterval(() => document.querySelectorAll('.ann-talks').forEach(el => el.classList.toggle('open')), 140);
+    if (on) mouth = setInterval(() => document.querySelectorAll('.ann-talks').forEach(el => el.classList.toggle('open')), 140);
     status(on ? 'Speaking…' : busy ? 'Thinking…' : 'Online');
   };
   function speak(text) {
@@ -188,7 +187,6 @@ const annVoice = (() => {
         window.successCharts.mount(chart, spec, { play: true });
       }
     };
-    if (reduce) { el.textContent = text; showCharts(); scrollDown(); return Promise.resolve(); }
     return new Promise(done => {
       let i = 0;
       const finish = () => { clearInterval(t); el.textContent = text; li.removeEventListener('click', finish); showCharts(); scrollDown(); done(); };
@@ -278,7 +276,7 @@ const annVoice = (() => {
     const mine = session;
     setVoice(voiceOn);
     syncSend();
-    if (A && !reduce) A.animate('#annWave', { rotate: [0, -150, -120, -150, -120, 0], duration: 1600, delay: 300, ease: 'inOutSine' });   // she waves
+    if (A) A.animate('#annWave', { rotate: [0, -150, -120, -150, -120, 0], duration: 1600, delay: 300, ease: 'inOutSine' });   // she waves
     await annSays("Hi, I'm Advisor Ann! What can I do for you?");
     if (mine !== session) return;
     const s = document.createElement('li');

@@ -38,10 +38,8 @@
   .nav .wrap { display: flex; align-items: center; gap: 16px; height: 60px; max-width: 1440px; }
   .nav .btn.nav-cta { flex: none; padding: 8px 16px; font-size: 17px; }
   /* a small shake every few seconds so the consultation button gets noticed; still while hovered */
-  @media (prefers-reduced-motion: no-preference) {
-    .nav-cta { animation: nudge 6s ease-in-out 2s infinite; }
-    .nav-cta:hover, .nav-cta:focus-visible { animation-play-state: paused; }
-  }
+  .nav-cta { animation: nudge 6s ease-in-out 2s infinite; }
+  .nav-cta:hover, .nav-cta:focus-visible { animation-play-state: paused; }
   @keyframes nudge { 0%, 10%, 100% { transform: none; } 2% { transform: rotate(-4deg); } 4% { transform: rotate(4deg); } 6% { transform: rotate(-3deg); } 8% { transform: rotate(2deg); } }
   .tabs { flex: 1; min-width: 0; display: flex; gap: clamp(14px, 3vw, 28px); overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
   .tabs::-webkit-scrollbar { display: none; }
@@ -216,10 +214,7 @@
   footer { padding-block: 40px 56px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 16px; color: var(--muted); }
 
   @keyframes rise { from { opacity: 0; transform: translateY(.5em); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    *, *::before, *::after { animation: none !important; transition: none !important; }
-  }
+  /* Motion plays for every visitor: this site deliberately does not read prefers-reduced-motion. */
 
   /* ── the full-screen crayon-collage scene (site/hero.js): exactly one screen tall, then the page scrolls on ── */
   .scene { --c-ink: #2B2622; --c-ink-2: #4A433C; --c-white: #FFFDF7; --c-brick: #C8553D;
@@ -413,7 +408,6 @@
     .suggest { padding-left: 0; }
     .wide-only { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { #annBody, .blink, .dots i, .chip.nudge { animation: none; } }
 </style>
 </head>
 <body class="adv">
@@ -1521,7 +1515,6 @@
 
   /* ── scroll-linked motion ─────────────────────────────────────────────── */
 
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const clamp01 = v => Math.max(0, Math.min(1, v));
   const smooth = t => t * t * (3 - 2 * t);   // smoothstep: eases both ways, so rewinding feels like playing
   // Scroll distance a chart's animation takes: 0 with the plot's top at the viewport bottom, 1 once it is
@@ -1561,13 +1554,13 @@
     for (const c of charts) {
       if (!c.svg || !c.svg.isConnected) continue;   // not drawn yet, or removed (a restarted chat)
       let target;
-      if (c.play) target = reduced.matches ? 1 : clamp01((performance.now() - c.t0) / PLAY_MS);
+      if (c.play) target = clamp01((performance.now() - c.t0) / PLAY_MS);
       else {
         const top = c.svg.getBoundingClientRect().top;
-        target = reduced.matches ? 1 : clamp01((vh - top) / (vh * (1 - END)));
+        target = clamp01((vh - top) / (vh * (1 - END)));
         if (atBottom && top < vh) target = 1;   // the page can't scroll further, so let what's on screen finish
       }
-      const next = c.play || reduced.matches || Math.abs(target - c.p) < 0.002 ? target : c.p + (target - c.p) * EASE_IN;
+      const next = c.play || Math.abs(target - c.p) < 0.002 ? target : c.p + (target - c.p) * EASE_IN;
       if (next !== c.p || c.dirty) { c.p = next; c.dirty = false; applyMarks(c.marks, c.n, c.p); }
       if (c.p !== target || (c.play && target < 1)) ticking = true;   // a playing chart keeps going until it's drawn
     }
@@ -1576,7 +1569,6 @@
   const kick = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
   addEventListener('scroll', kick, { passive: true });
   addEventListener('resize', kick);
-  reduced.addEventListener('change', kick);
 
   /* ── Copy code ───────────────────────────────────────────────────────── */
 
@@ -1815,7 +1807,6 @@ const annVoice = (() => {
 
 (() => {
   const A = window.anime;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
   const log = $('log'), box = $('msg'), tray = $('tray'), fileIn = $('fileIn');
   const messages = [];
@@ -1829,7 +1820,7 @@ const annVoice = (() => {
   const talking = on => {   // Ann's mouth (portrait and header avatar) opens and closes while she speaks
     clearInterval(mouth);
     document.querySelectorAll('.ann-talks').forEach(el => el.classList.remove('open'));
-    if (on && !reduce) mouth = setInterval(() => document.querySelectorAll('.ann-talks').forEach(el => el.classList.toggle('open')), 140);
+    if (on) mouth = setInterval(() => document.querySelectorAll('.ann-talks').forEach(el => el.classList.toggle('open')), 140);
     status(on ? 'Speaking…' : busy ? 'Thinking…' : 'Online');
   };
   function speak(text) {
@@ -1912,7 +1903,6 @@ const annVoice = (() => {
         window.successCharts.mount(chart, spec, { play: true });
       }
     };
-    if (reduce) { el.textContent = text; showCharts(); scrollDown(); return Promise.resolve(); }
     return new Promise(done => {
       let i = 0;
       const finish = () => { clearInterval(t); el.textContent = text; li.removeEventListener('click', finish); showCharts(); scrollDown(); done(); };
@@ -2002,7 +1992,7 @@ const annVoice = (() => {
     const mine = session;
     setVoice(voiceOn);
     syncSend();
-    if (A && !reduce) A.animate('#annWave', { rotate: [0, -150, -120, -150, -120, 0], duration: 1600, delay: 300, ease: 'inOutSine' });   // she waves
+    if (A) A.animate('#annWave', { rotate: [0, -150, -120, -150, -120, 0], duration: 1600, delay: 300, ease: 'inOutSine' });   // she waves
     await annSays("Hi, I'm Advisor Ann! What can I do for you?");
     if (mine !== session) return;
     const s = document.createElement('li');
