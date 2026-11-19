@@ -965,7 +965,6 @@
 
   /* ── scroll-linked motion ─────────────────────────────────────────────── */
 
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const clamp01 = v => Math.max(0, Math.min(1, v));
   const smooth = t => t * t * (3 - 2 * t);   // smoothstep: eases both ways, so rewinding feels like playing
   // Scroll distance a chart's animation takes: 0 with the plot's top at the viewport bottom, 1 once it is
@@ -1005,13 +1004,13 @@
     for (const c of charts) {
       if (!c.svg || !c.svg.isConnected) continue;   // not drawn yet, or removed (a restarted chat)
       let target;
-      if (c.play) target = reduced.matches ? 1 : clamp01((performance.now() - c.t0) / PLAY_MS);
+      if (c.play) target = clamp01((performance.now() - c.t0) / PLAY_MS);
       else {
         const top = c.svg.getBoundingClientRect().top;
-        target = reduced.matches ? 1 : clamp01((vh - top) / (vh * (1 - END)));
+        target = clamp01((vh - top) / (vh * (1 - END)));
         if (atBottom && top < vh) target = 1;   // the page can't scroll further, so let what's on screen finish
       }
-      const next = c.play || reduced.matches || Math.abs(target - c.p) < 0.002 ? target : c.p + (target - c.p) * EASE_IN;
+      const next = c.play || Math.abs(target - c.p) < 0.002 ? target : c.p + (target - c.p) * EASE_IN;
       if (next !== c.p || c.dirty) { c.p = next; c.dirty = false; applyMarks(c.marks, c.n, c.p); }
       if (c.p !== target || (c.play && target < 1)) ticking = true;   // a playing chart keeps going until it's drawn
     }
@@ -1020,7 +1019,6 @@
   const kick = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
   addEventListener('scroll', kick, { passive: true });
   addEventListener('resize', kick);
-  reduced.addEventListener('change', kick);
 
   /* ── Copy code ───────────────────────────────────────────────────────── */
 

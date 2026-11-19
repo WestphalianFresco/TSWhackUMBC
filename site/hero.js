@@ -7,13 +7,12 @@
  * uses anime.js 4 (loaded from cdnjs before this script): he walks, slides into
  * the job, and flips like a paper doll to change clothes. The crayon look comes
  * from the #crayon SVG filter, whose noise seed changes a few times a second so
- * the outlines wobble like stop-motion. Without anime.js, or with reduced
- * motion, he moves between spots instantly. Each stage can have a section of
+ * the outlines wobble like stop-motion. Without anime.js he moves between spots
+ * instantly; the system's Reduce Motion setting is deliberately not read. Each stage can have a section of
  * charts below the scene (.stage-panel[data-stage]); only the selected stage's shows.
  */
 (() => {
   const A = window.anime;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = id => document.getElementById(id);
   const scene = $('scene');
   if (!scene) return;
@@ -21,7 +20,7 @@
   const sticker = $('sticker'), speed = $('speed');
   const legs = [$('legB'), $('legF')], arms = [$('armB'), $('armF')];
   const set = A ? (A.utils && A.utils.set) || A.set : (el, p) => { if ('x' in p) el.style.transform = `translateX(${p.x}px)`; };
-  const still = reduce || !A;
+  const still = !A;
 
   // Each stage: where the student stands (share of the scene width), what he wears, and the sticker's words.
   const STATES = {
@@ -133,7 +132,7 @@
   findingsTab.addEventListener('click', () => findingsTab.setAttribute('aria-current', 'location'));
   document.querySelectorAll('[data-state]').forEach(el => el.addEventListener('click', () => {
     findingsTab.removeAttribute('aria-current');
-    if (scrollY > 8) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    if (scrollY > 8) scrollTo({ top: 0, behavior: 'smooth' });
     go(el.dataset.state);
   }));
   addEventListener('resize', () => { if (current) { set(wrap, { x: posX(current) }); placeSticker(current); } });

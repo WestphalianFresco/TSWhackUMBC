@@ -37,10 +37,8 @@
   .nav .wrap { display: flex; align-items: center; gap: 16px; height: 60px; max-width: 1440px; }
   .nav .btn.nav-cta { flex: none; padding: 8px 16px; font-size: 17px; }
   /* a small shake every few seconds so the consultation button gets noticed; still while hovered */
-  @media (prefers-reduced-motion: no-preference) {
-    .nav-cta { animation: nudge 6s ease-in-out 2s infinite; }
-    .nav-cta:hover, .nav-cta:focus-visible { animation-play-state: paused; }
-  }
+  .nav-cta { animation: nudge 6s ease-in-out 2s infinite; }
+  .nav-cta:hover, .nav-cta:focus-visible { animation-play-state: paused; }
   @keyframes nudge { 0%, 10%, 100% { transform: none; } 2% { transform: rotate(-4deg); } 4% { transform: rotate(4deg); } 6% { transform: rotate(-3deg); } 8% { transform: rotate(2deg); } }
   .tabs { flex: 1; min-width: 0; display: flex; gap: clamp(14px, 3vw, 28px); overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
   .tabs::-webkit-scrollbar { display: none; }
@@ -215,10 +213,7 @@
   footer { padding-block: 40px 56px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 16px; color: var(--muted); }
 
   @keyframes rise { from { opacity: 0; transform: translateY(.5em); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    *, *::before, *::after { animation: none !important; transition: none !important; }
-  }
+  /* Motion plays for every visitor: this site deliberately does not read prefers-reduced-motion. */
 
   /* ── the full-screen crayon-collage scene (site/hero.js): exactly one screen tall, then the page scrolls on ── */
   .scene { --c-ink: #2B2622; --c-ink-2: #4A433C; --c-white: #FFFDF7; --c-brick: #C8553D;
@@ -893,7 +888,7 @@
 <script>
   // Count-up stats. The markup already holds the real figures; the count starts
   // when the strip first scrolls into view and always lands on them exactly.
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+  if ('IntersectionObserver' in window) {
     const nums = document.querySelectorAll('[data-count]');
     const io = new IntersectionObserver(entries => {
       if (!entries.some(e => e.isIntersecting)) return;
